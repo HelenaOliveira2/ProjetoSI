@@ -1,0 +1,32 @@
+from spade.behaviour import CyclicBehaviour
+import jsonpickle
+
+class ReceiveMessages_Behav(CyclicBehaviour):
+    async def run(self):
+        # Fica à espera de uma mensagem do AD (com timeout para não bloquear o agente)
+        msg = await self.receive(timeout=5)
+        
+        if msg:
+            perf = msg.metadata.get("performative")
+            # 1. Verificar se é uma falha vinda do Agente Dispositivo (AD) 
+            if perf == "failure":
+                vitals = jsonpickle.decode(msg.body)
+                # Guarda o objeto de erro para o comportamento de envio (SendVitals)
+                self.agent.set("last_vitals", vitals)
+                print("Agent {}:".format(str(self.agent.jid)) + " Alerta: Falha no sensor detetada vinda de {}! Mensagem: {}".format(str(msg.sender), msg.body))
+                
+            # 2. Verificar se é uma recomendação vinda do Médico (AM) via APL 
+            elif perf == "propose": 
+                print("Agent {}:".format(str(self.agent.jid)) + " Proposta de intervenção médica recebida de {}: {}".format(str(msg.sender), msg.body))
+                # Intervenção como contacto com o paciente, recomendação terapêutica ou pedido de observação presencial
+
+            # 3. Verificar se são sinais vitais (inform) vindos do AD 
+            elif perf == "inform":
+                vitals = jsonpickle.decode(msg.body)
+                # Guarda os dados para o comportamento de envio (SendVitals)
+                self.agent.set("last_vitals", vitals)
+                    
+                print("Agent {}:".format(str(self.agent.jid)) + " Sinais vitais recebidos do dispositivo {}: {}".format(str(msg.sender), vitals.toString()))
+                    
+    async def on_end(self):
+        print("Agent {}:".format(str(self.agent.jid)) + " Comportamento de receção de mensagens terminado.")
