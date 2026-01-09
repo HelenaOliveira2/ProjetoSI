@@ -11,4 +11,5 @@ class DeviceAgent(agent.Agent):
         # 2. PeriodicBehaviour: Monitorização periódica
         a = MonitoringSensor_Behav(period=10)
 
-        self.add_behaviour(a)
+        self.add_behaviour(a)   
+        
