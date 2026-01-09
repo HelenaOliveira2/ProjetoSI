@@ -16,7 +16,7 @@ PASSWORD = 'NOPASSWORD'
 async def main():
     print("Iniciando Sistema de Monitorizacao Medica...")
 
-    # 1. Iniciar a Plataforma e o Alerta (Base do Sistema)
+    # 1. Iniciar a Plataforma e o Alerta
     apl_jid = 'plataforma@' + XMPP_SERVER
     apl_agent = APL_Agent(apl_jid, PASSWORD)
     await apl_agent.start()
@@ -24,71 +24,78 @@ async def main():
     aa_jid = 'agente_alerta@' + XMPP_SERVER
     aa_agent = AlertAgent(aa_jid, PASSWORD)
     aa_agent.set("apl_jid", apl_jid)
+
+    apl_agent.set("aa_jid", aa_jid)
     await aa_agent.start()
 
     time.sleep(1)
 
-    # 2. Iniciar Médicos com Especialidades Diferentes (Para testar a triagem)
+    # 2. Iniciar Médicos Especialistas
     especialidades = ["Diabetes", "Hipertensão", "DPOC"]
     medicos_list = []
-    
-    for i, esp in enumerate(especialidades, 1):
-        m_jid = 'medico_{}@'.format(esp.lower()) + XMPP_SERVER
+    for esp in especialidades:
+        # replace("ã", "a") evita erros com caracteres especiais no XMPP
+        m_jid = f'medico_{esp.lower()}@{XMPP_SERVER}'.replace("ã", "a").replace("õ", "o")
         m_agent = MedicalAgent(m_jid, PASSWORD)
         m_agent.set('platform_register', apl_jid)
-        m_agent.set('especialidade_inicial', esp) # Para o setup do médico saber o que é
-        
+        m_agent.set('especialidade_inicial', esp)
         await m_agent.start()
         medicos_list.append(m_agent)
 
     time.sleep(1)
 
-    # 3. Iniciar os 3 Pacientes (Conforme o enunciado)
+    # --- 3. CONFIGURAÇÃO UNIFICADA (A Fonte da Verdade) ---
+    # O que escreveres aqui define O PACIENTE e OS SENSORES automaticamente.
+    config_pacientes = [
+        {"nome": "paciente1", "doencas": ["DPOC"]},  # Só DPOC
+        {"nome": "paciente2", "doencas": ["Diabetes", "Hipertensão"]}, # Múltiplo
+        {"nome": "paciente3", "doencas": ["Hipertensão"]} # Só Hipertensão
+    ]
+
+    mapeamento_sensores = {
+        "Diabetes": "MedidorGlicemia",
+        "Hipertensão": "Tensiometro",
+        "DPOC": "Oximetro"
+    }
+
     pacientes_list = []
-    for i in range(1, 4):
-        p_jid = 'paciente{}@'.format(i) + XMPP_SERVER
+    dispositivos_list = []
+
+    # Loop Principal: Cria o Paciente e logo a seguir os seus sensores
+    for conf in config_pacientes:
+        # A. Criar o Paciente
+        p_jid = conf["nome"] + '@' + XMPP_SERVER
         p_agent = PatientAgent(p_jid, PASSWORD)
+        
+        p_agent.set("doencas_iniciais", conf["doencas"])
         p_agent.set('platform_register', apl_jid)
         p_agent.set('aa_jid', aa_jid)
         
         await p_agent.start()
         pacientes_list.append(p_agent)
 
-    time.sleep(1)
-
-    # 4. Iniciar os Agentes Dispositivo (AD)
-    # Cada dispositivo precisa de saber o JID do seu Paciente para lhe mandar dados
-    # 4. Iniciar os Agentes Dispositivo (AD)
-    dispositivos_list = []
-    
-    # Mapeamento para garantir a classe correta
-    mapeamento = {
-        "Diabetes": "MedidorGlicemia",
-        "Hipertensão": "Tensiometro",
-        "DPOC": "Oximetro"
-    }
-
-    for i, p_agent in enumerate(pacientes_list, 1):
-        p_jid = str(p_agent.jid)
-        
-        # Vamos buscar as doenças que foram sorteadas para este paciente
-        # (Assumindo que guardaste no setup ou que podes aceder ao perfil)
-        doencas = p_agent.get("doencas_iniciais") 
-
-        for doenca in doencas:
-            ad_jid = f"sensor_{doenca.lower()}_{i}@" + XMPP_SERVER
+        # B. Criar APENAS os sensores listados na config deste paciente
+        for doenca in conf["doencas"]:
+            tipo_classe = mapeamento_sensores[doenca]
+            
+            # Cria JID único (ex: sensor_dpoc_paciente1@...)
+            nome_sensor = f"sensor_{doenca.lower()}_{conf['nome']}".replace("ã", "a").replace("õ", "o")
+            ad_jid = f"{nome_sensor}@{XMPP_SERVER}"
+            
             ad_agent = DeviceAgent(ad_jid, PASSWORD)
             
+            # Configurações para o sensor saber o que fazer
             ad_agent.set('paciente_alvo', p_jid)
-            ad_agent.set('tipo_dispositivo', mapeamento[doenca])
+            ad_agent.set('tipo_dispositivo', tipo_classe)
             ad_agent.set('tipo_doenca', doenca)
             
             await ad_agent.start()
             dispositivos_list.append(ad_agent)
             
-    print('Sistema configurado com 3 Especialistas, 3 Pacientes e 3 Dispositivos.')
-    
-    
+            print(f"   -> Sensor criado: {doenca} para {conf['nome']}")
+
+    print('\nSistema iniciado corretamente.')
+    print(f"Total: {len(pacientes_list)} Pacientes e {len(dispositivos_list)} Dispositivos.\n")
 
     # Manter a correr
     await wait_until_finished(apl_agent)

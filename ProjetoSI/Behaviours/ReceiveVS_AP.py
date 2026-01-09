@@ -5,7 +5,7 @@ from spade.message import Message
 class ReceiveMessages_Behav(CyclicBehaviour):
     async def run(self):
         # Fica à espera de uma mensagem do AD 
-        msg = await self.receive(timeout=5)
+        msg = await self.receive(timeout=15)
         
         if msg:
             perf = msg.metadata.get("performative")
