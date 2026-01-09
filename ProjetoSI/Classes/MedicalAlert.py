@@ -28,3 +28,5 @@ class MedicalAlert:
         return "MedicalAlert [Nível={}] para o Paciente: {}".format(
             self.level, self.profile.getAgent()
         )
+    
+
