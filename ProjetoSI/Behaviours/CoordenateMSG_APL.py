@@ -1,4 +1,5 @@
 import math
+import time
 import jsonpickle
 from spade.behaviour import CyclicBehaviour
 from spade.message import Message
@@ -10,6 +11,8 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
         msg = await self.receive(timeout=10)
 
         if msg:
+            print(f"DEBUG PLATAFORMA: Recebi msg de '{msg.sender}'. Metadata: {msg.metadata}")
+
             perf = msg.get_metadata("performative").lower()
             sender = str(msg.sender)
 
@@ -21,15 +24,41 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
                     print("Agent {}: Médico {} registado!".format(str(self.agent.jid), sender))
                 elif isinstance(obj, PatientProfile):
                     self.agent.pacientes_registados.append(obj)
+
+                    # --- CORREÇÃO 1: Iniciar o relógio do paciente ---
+                    self.agent.ultimo_contacto[sender] = time.time()
+                    # -------------------------------------------------
+
                     print("Agent {}: Paciente {} registado!".format(str(self.agent.jid), sender))
 
             # --- B. TRATAMENTO DE ALERTAS (INFORM, URGENT, CRITICAL) ---
             elif (perf in ["inform", "urgent", "critical"]) and sender == str(self.agent.get("aa_jid")):
                 
-                # O AA deve enviar: [objeto_vitals, objeto_perfil, "Especialidade"]
+                # O AA envia: [objeto_vitals, None, "Especialidade"]
                 dados = jsonpickle.decode(msg.body)
                 vitals_obj = dados[0]
-                perfil_p = dados[1]
+                
+                # --- CORREÇÃO CRÍTICA AQUI ---
+                # O AA mandou None no dados[1]. Temos de procurar o perfil na nossa lista!
+                perfil_p = None
+                jid_paciente_alvo = str(vitals_obj.agent_jid) # O objeto vitals tem o nome do paciente
+
+                for p in self.agent.pacientes_registados:
+                    if str(p.getJID()) == jid_paciente_alvo:
+                        perfil_p = p
+                        break
+                
+                # Se não encontrarmos o perfil, não podemos continuar (evita o crash)
+                if not perfil_p:
+                    print("Agent {}: ERRO - Perfil de {} não encontrado na memória.".format(str(self.agent.jid), jid_paciente_alvo))
+                    return 
+                # -----------------------------
+
+                # --- CORREÇÃO 2: Atualizar o relógio (Heartbeat) ---
+                # O paciente está vivo, por isso resetamos o contador de timeout
+                self.agent.ultimo_contacto[jid_paciente_alvo] = time.time()
+                # ---------------------------------------------------
+
                 especialidade_req = dados[2] # Ex: "Diabetes" ou "Cardiologia"
 
                 # Identificamos o sensor para o print ser bonito para o stor
@@ -41,10 +70,16 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
                 # 1. Procurar médicos que tenham EXATAMENTE a especialidade do sensor
                 candidatos = []
                 for m in self.agent.medicos_registados:
-                    if m.getSpecialty() == especialidade_req and m.isAvailable():
+                    if m.getSpeciality() == especialidade_req and m.isAvailable():
                         candidatos.append(m)
 
                 alerta_entregue = False
+                
+                # Se não houver médicos, avisar
+                if not candidatos:
+                    print("Agent {}: AVISO: Nenhum especialista em {} disponível!".format(
+                        str(self.agent.jid), especialidade_req))
+
                 while candidatos and not alerta_entregue:
                     # 2. Selecionar o médico daquela especialidade mais próximo
                     melhor_medico = None
@@ -72,19 +107,17 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
                         tempo_espera = 5 if perf == "critical" else 15
                         resposta = await self.receive(timeout=tempo_espera)
 
-                        if resposta and str(resposta.sender) == melhor_medico.getAgent() and resposta.get_metadata("performative") == "inform":
-                            print("Agent {}: Especialista {} aceitou o alerta de {}.".format(
+                        # O médico responde "accept-proposal" ou "inform" a dizer que aceitou
+                        if resposta and str(resposta.sender) == melhor_medico.getAgent():
+                             # Aceitamos qualquer performative positiva
+                             print("Agent {}: Especialista {} aceitou o alerta de {}.".format(
                                 str(self.agent.jid), str(resposta.sender), especialidade_req))
-                            melhor_medico.setAvailable(False)
-                            alerta_entregue = True
+                             melhor_medico.setAvailable(False)
+                             alerta_entregue = True
                         else:
-                            print("Agent {}: Médico {} (Especialidade: {}) falhou. Tentando outro...".format(
+                            print("Agent {}: Médico {} (Especialidade: {}) falhou/recusou. Tentando outro...".format(
                                 str(self.agent.jid), melhor_medico.getAgent(), especialidade_req))
                             candidatos.remove(melhor_medico)
-
-                if not alerta_entregue:
-                    print("Agent {}: AVISO: Nenhum especialista em {} disponível!".format(
-                        str(self.agent.jid), especialidade_req))
 
             # --- C. FIM DE INTERVENÇÃO (CONFIRM) ---
             elif perf == "confirm":

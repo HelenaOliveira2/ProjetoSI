@@ -7,36 +7,44 @@ from Classes.Position import Position
 
 class RegisterPatient_Behav(OneShotBehaviour):
     async def run(self):
-        # 1. Definir as doenças (pode ser uma ou mais, por isso usamos uma lista)
-        # Exemplo: Sorteamos 1 ou 2 doenças para este paciente
-        opcoes = ["Diabetes", "Hipertensão", "DPOC"]
-        doencas_escolhidas = random.sample(opcoes, k=random.randint(1, len(opcoes)))
-        
-        # 2. Mapear os dispositivos automaticamente (Dicionário de suporte)
+        # --- CORREÇÃO AQUI ---
+        # 1. Tentar ler as doenças que definimos na main.py
+        doencas_escolhidas = self.agent.get("doencas_iniciais")
+
+        # Fallback: Se por acaso a main não mandou nada, fazemos aleatório
+        if not doencas_escolhidas:
+            opcoes = ["Diabetes", "Hipertensão", "DPOC"]
+            doencas_escolhidas = random.sample(opcoes, k=random.randint(1, len(opcoes)))
+
+        # 2. Mapear os dispositivos automaticamente
         mapeamento = {
             "Diabetes": "MedidorGlicemia",
             "Hipertensão": "Tensiometro",
             "DPOC": "Oximetro"
         }
 
-        # Criamos a lista de dispositivos correspondente às doenças escolhidas
-        dispositivos = [mapeamento[d] for d in doencas_escolhidas]
+        # Criamos a lista de dispositivos correspondente às doenças
+        dispositivos = [mapeamento[d] for d in doencas_escolhidas if d in mapeamento]
 
-        # 3. Criar o Objeto Profile (Passando as listas)
+        # 3. Criar o Objeto Profile
         profile = PatientProfile(
             str(self.agent.jid),
-            doencas_escolhidas, # LISTA
+            doencas_escolhidas, # Usa a lista vinda da Main
             Position(random.randint(1, 100), random.randint(1, 100)),
-            dispositivos        # LISTA
+            dispositivos
         )
 
-        print("Agent {}:".format(str(self.agent.jid)) + " Perfil criado com {}.".format(profile.toString()))
+        # IMPORTANTE: Guardar o perfil no agente para que o SendVitals possa usá-lo depois
+        self.agent.set("perfil_paciente", profile)
+
+        print(f"Agent {self.agent.jid}: Perfil carregado com {profile.toString()}")
 
         # 4. Enviar para a Plataforma
-        msg = Message(to=str(self.agent.get("platform_register")))
-        msg.set_metadata("performative", "subscribe")
-        msg.body = jsonpickle.encode(profile)
-        
-        await self.send(msg)
-        print("Agent {}:".format(str(self.agent.jid)) + " A registar na Plataforma {}...".format(str(self.agent.get("platform_register"))) + "com as doenças:{}".format(doencas_escolhidas))
-        
+        plataforma_jid = self.agent.get("platform_register")
+        if plataforma_jid:
+            msg = Message(to=str(plataforma_jid))
+            msg.set_metadata("performative", "subscribe")
+            msg.body = jsonpickle.encode(profile)
+            
+            await self.send(msg)
+            print(f"Agent {self.agent.jid}: Registado na Plataforma com doenças: {doencas_escolhidas}")

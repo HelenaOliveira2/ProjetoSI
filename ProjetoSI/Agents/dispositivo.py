@@ -9,6 +9,6 @@ class DeviceAgent(agent.Agent):
         print("Agent {}:".format(str(self.jid)) + " Agente Dispositivo (AD) a iniciar...")
                 
         # 2. PeriodicBehaviour: Monitorização periódica
-        a = MonitoringSensor_Behav(period=5)
+        a = MonitoringSensor_Behav(period=10)
 
         self.add_behaviour(a)

@@ -1,5 +1,3 @@
-import jsonpickle
-
 class MedicalAlert:
     """
     Objeto que encapsula o alerta gerado.

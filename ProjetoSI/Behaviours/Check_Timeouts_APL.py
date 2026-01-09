@@ -30,7 +30,7 @@ class Monitorizacao_Behav(PeriodicBehaviour):
                     candidatos = []
                     for m in self.agent.medicos_registados:
                         # Verificamos se a especialidade do médico está na lista de doenças do paciente
-                        if m.getSpecialty() in doencas_paciente and m.isAvailable():
+                        if m.getSpeciality() in doencas_paciente and m.isAvailable():
                             candidatos.append(m)
 
                     if candidatos:
@@ -48,7 +48,7 @@ class Monitorizacao_Behav(PeriodicBehaviour):
 
                         if melhor_medico:
                             print("Agent {}: A avisar especialista em {} (Médico {}) sobre falha no paciente {}.".format(
-                                str(self.agent.jid), melhor_medico.getSpecialty(), melhor_medico.getAgent(), p_jid))
+                                str(self.agent.jid), melhor_medico.getSpeciality(), melhor_medico.getAgent(), p_jid))
                             
                             msg_med = Message(to=str(melhor_medico.getAgent()))
                             msg_med.set_metadata("performative", "failure")
