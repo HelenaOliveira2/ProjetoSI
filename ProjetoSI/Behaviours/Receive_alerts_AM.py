@@ -48,6 +48,22 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                 # Simula o tempo que o médico demora a tratar o paciente
                 await asyncio.sleep(tempo_intervencao)
 
+                # ---  ENVIAR DECISÃO PARA A PLATAFORMA ---
+                # Criamos um pedido para a Plataforma entregar a mensagem
+                msg_entrega = Message(to=str(msg.sender)) # msg.sender é a Plataforma
+                msg_entrega.set_metadata("performative", "request")
+                msg_entrega.set_metadata("purpose", "delivery") # Para a APL saber que é para entregar
+
+                # Guardamos o destinatário e a mensagem num dicionário
+                conteudo = {
+                    "destinatario": paciente_jid,
+                    "mensagem": decisao_medica
+                }
+                msg_entrega.body = jsonpickle.encode(conteudo)
+                
+                await self.send(msg_entrega)
+                print(f"[AM] {self.agent.jid}: Enviei a decisão para a Plataforma entregar.")
+
                 # 4. FINALIZAÇÃO (Protocolo de Libertação)
                 # Enviamos 'confirm' para a Plataforma saber que o médico está LIVRE (available=True)
                 conf = Message(to=str(msg.sender))

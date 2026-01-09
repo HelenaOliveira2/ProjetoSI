@@ -1,5 +1,5 @@
 from spade import agent
-from ProjetoSI.Behaviours.EvaluateVS_AA import EvaluateVS_Behav
+from Behaviours.EvaluateVS_AA import EvaluateVS_Behav
 
 class AlertAgent(agent.Agent):
     async def setup(self):

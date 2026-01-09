@@ -1,7 +1,7 @@
 # igual ao stor TP4
 from Classes.Position import Position
 
-class DoctorProfile:
+class InformPhysician:
     def __init__(self, agent_jid: str, position: Position, speciality: str, available: bool):
         self.agent_jid = agent_jid
         self.position = position

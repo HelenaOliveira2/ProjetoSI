@@ -30,7 +30,7 @@ class ReceiveMessages_Behav(CyclicBehaviour):
                 # Guarda os dados para o comportamento de envio (SendVitals)
                 self.agent.set("last_vitals", vitals)
                     
-                print("Agent {}:".format(str(self.agent.jid)) + " Sinais vitais recebidos do dispositivo: {}".format(str(msg.sender), vitals.toString()))
+                print("Agent {}:".format(str(self.agent.jid)) + " Sinais vitais recebidos do dispositivo: {}".format( vitals.toString()))
                     
     async def on_end(self):
         print("Agent {}:".format(str(self.agent.jid)) + " Comportamento de receção de mensagens terminado.")

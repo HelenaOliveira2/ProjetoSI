@@ -1,7 +1,6 @@
 import jsonpickle
 from spade.behaviour import PeriodicBehaviour
 from spade.message import Message
-from Classes.Vital_Signs import VitalSigns
 from Classes.Patient_Profile import PatientProfile
 
 class SendVitals_Behav(PeriodicBehaviour):
@@ -11,7 +10,7 @@ class SendVitals_Behav(PeriodicBehaviour):
 
         if vitals:
             # 2. Preparar a mensagem para a Plataforma
-            msg = Message(to=str(self.agent.get("platform_register")))
+            msg = Message(to=str(self.agent.get("aa_jid")))
             msg.set_metadata("performative", "inform")
             
             # Enviamos apenas o objeto vitals (MedidorGlicemia, Oximetro, etc.)
@@ -19,8 +18,10 @@ class SendVitals_Behav(PeriodicBehaviour):
 
             # 3. Enviar
             await self.send(msg)
+
+            tipo_dispositivo = vitals.__class__.__name__
             
-            print("Agent {}: Sinais vitais do {} enviados para {}".format(str(self.agent.jid), str(msg.sender), str(self.agent.get("platform_register"))))
+            print("Agent {}: Sinais vitais do dispositivo {} enviados para {}".format(str(self.agent.jid), tipo_dispositivo, str(self.agent.get("aa_jid"))))
             
             # 4. Limpar para não repetir o mesmo dado no próximo ciclo
             self.agent.set("last_vitals", None)
