@@ -1,5 +1,3 @@
-import jsonpickle
-
 class MedicalAlert:
     """
     Objeto que encapsula o alerta gerado.
@@ -28,14 +26,6 @@ class MedicalAlert:
         return self.profile.getAgent()
 
     def toString(self):
-<<<<<<< HEAD
-        return "MedicalAlert [Nível={}] para o Paciente: {}".format(
-            self.level, self.profile.getAgent()
-        )
-    
-
-=======
         return "MedicalAlert [Nivel={}, Doenca={}, Paciente={}]".format(
             self.level, self.profile.getDisease(), self.profile.getAgent()
         )
->>>>>>> 5920555bec1166e737b12f46fc4d4384653de834
