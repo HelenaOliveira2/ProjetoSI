@@ -6,43 +6,26 @@ from Classes.Patient_Profile import PatientProfile
 
 class SendVitals_Behav(PeriodicBehaviour):
     async def run(self):
-        # 1. Tentar obter os últimos dados guardados pelo ReceiveMessages_Behav
+        # 1. Tentar obter os últimos dados guardados
         vitals = self.agent.get("last_vitals")
 
-        # Vamos buscar o perfil que está guardado no agente paciente ????''
-        perfil = self.agent.get("perfil") #??????''
-
         if vitals:
-            # 2. Obter o JID do destinatário (Agente Plataforma)
-            # os dados vão para a APL que reencaminha para o AA
-            target_jid = self.agent.get("platform_register") 
+            # 2. Preparar a mensagem para a Plataforma
+            msg = Message(to=str(self.agent.get("platform_register")))
+            msg.set_metadata("performative", "inform")
+            
+            # Enviamos apenas o objeto vitals (MedidorGlicemia, Oximetro, etc.)
+            msg.body = jsonpickle.encode(vitals)
 
-            # 3. Preparar a mensagem 
-            msg = Message(to=str(target_jid))
-
-            # Se os sinais vitais indicarem erro (-1), a performative deve ser 'failure'
-            if vitals.getGlucose() == -1 or vitals.getSpo2() == 0:
-                msg.set_metadata("performative", "failure")
-                log_status = "ALERTA DE FALHA"
-            else:
-                msg.set_metadata("performative", "inform") 
-                log_status = "Sinais vitais"
-
-            # Enviamos uma lista com os dois objetos: [SinaisVitais, Perfil] ???????
-            dados_completos = [vitals, perfil]  # ????
-            msg.body = jsonpickle.encode(dados_completos)
-
-            #msg.body = jsonpickle.encode(vitals)
-
-            # 4. Enviar os dados
+            # 3. Enviar
             await self.send(msg)
             
-            print("Agent {}:".format(str(self.agent.jid)) + " {}: Dados enviados para {}: {}".format(log_status, target_jid, vitals.toString()))
+            print("Agent {}: Sinais vitais do {} enviados para {}".format(str(self.agent.jid), str(msg.sender), str(self.agent.get("platform_register"))))
             
-            # Opcional: Limpar os dados após o envio para evitar duplicados se o AD falhar
-            # self.agent.set("last_vitals", None)
+            # 4. Limpar para não repetir o mesmo dado no próximo ciclo
+            self.agent.set("last_vitals", None)
 
         else:
-            # Caso não existam dados (ex: o AD ainda não mandou nada ou está em falha)
+            # Se não houver dados (porque o sensor falhou ou ainda não mediu)
             print("Agent {}:".format(str(self.agent.jid)) + " Aviso: Sem dados vitais recentes para enviar.")
             

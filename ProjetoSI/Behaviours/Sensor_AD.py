@@ -3,42 +3,51 @@ import asyncio
 import random 
 from spade.behaviour import PeriodicBehaviour
 from spade.message import Message
-from Classes.Vital_Signs import VitalSigns
+
+from Classes.Medidor_glicemia import MedidorGlicemia
+from Classes.tensiometro import Tensiometro
+from Classes.oximetro import Oximetro
 
 class MonitoringSensor_Behav(PeriodicBehaviour):  
     async def run(self):
-        # --- 1. SIMULAR LEITURA DOS SENSORES ---
-        # Simulamos uma probabilidade de 5% de o sensor falhar (retornar None)
-        if random.random() < 0.05:
-            vitals = None
-        else:
-            # Geramos valores aleatórios para testar todos os níveis do Agente Alerta
-            glicemia = random.randint(70, 250)
-            pa_sis = random.randint(110, 190)
-            pa_dia = random.randint(60, 100)
-            spo2 = random.randint(85, 100)
-            
-            vitals = VitalSigns(str(self.agent.jid), glicemia, pa_sis, pa_dia, spo2)
-
-        # 2. Lógica de Falha/Leitura Inválida 
-        if vitals is None or vitals.getSpo2() < 10:  # nao sei se este or faz muito sentido
-
-            # Se deu erro, criamos um objeto VitalSigns com valores de erro (-1)
-            vitals_erro = VitalSigns(str(self.agent.jid), -1, -1, -1, 0)
-
-            msg = Message(to=str(self.agent.get("paciente_jid")))
-            msg.set_metadata("performative", "failure")
-            msg.body = jsonpickle.encode(vitals_erro)
-            
-            await self.send(msg)
-            print("Agent {}:".format(str(self.agent.jid)) + " Alerta: Falha técnica enviada ao Paciente.")
-        
-        else:
-            # 3. Fluxo Normal: Enviar sinais vitais
-            msg = Message(to=str(self.agent.get("paciente_jid")))
-            msg.set_metadata("performative", "inform")
-            msg.body = jsonpickle.encode(vitals)
-            
-            await self.send(msg)
-            print("Agent {}:".format(str(self.agent.jid)) + " Dados dos sinais vitais lidos e enviados ao paciente com sucesso.")
+   
+        perfil = self.agent.get("perfil_paciente")
+        dispositivos = perfil.getDeviceType() # Se getDisease() devolver uma lista
        
+
+        # Iteramos por cada doença/dispositivo que o paciente possui
+        for dispositivo in dispositivos:
+            vitals = None
+            
+            # --- 1. SIMULAR FALHA (5%) ---
+            if random.random() < 0.05:
+                # Enviar mensagem de falha para este sensor específico
+                msg = Message(to=str(self.agent.get("paciente_jid")))
+                msg.set_metadata("performative", "failure")
+                msg.body = dispositivo
+                await self.send(msg)
+                print("Agent {}:".format(str(self.agent.jid)) + " Alerta: Falha técnica do dispositivo {}".format(dispositivo) + "enviada ao Paciente.")
+                continue # Salta para o próximo sensor da lista. ou seja se um sensor falhar ele continua a ler os outros que tenha 
+
+            # --- 2. SIMULAR LEITURA (95% de sucesso) ---
+            if dispositivo == "MedidorGlicemia":
+                vitals = MedidorGlicemia(str(self.agent.jid), random.randint(70, 250))
+            
+            elif dispositivo == "Tensiometro":
+                vitals = Tensiometro(
+                    str(self.agent.jid), 
+                    random.randint(110, 190), # Sistólica
+                    random.randint(60, 100)   # Diastólica
+                )
+            
+            elif dispositivo == "Oximetro":
+                vitals = Oximetro(str(self.agent.jid), random.randint(85, 100))
+
+            # --- 3. ENVIO DOS DADOS ---
+            if vitals:
+                msg = Message(to=str(self.agent.get("paciente_jid")))
+                msg.set_metadata("performative", "inform")
+                msg.body = jsonpickle.encode(vitals)
+                
+                await self.send(msg)
+                print("Agent {}:".format(str(self.agent.jid)) + " Dados dos sinais vitais lidos: {}".format(vitals.toString()) + " e enviados ao paciente {}".format(str(self.agent.get("paciente_jid")))+ "com sucesso.")

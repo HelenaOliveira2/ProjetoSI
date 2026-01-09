@@ -3,7 +3,13 @@ from ProjetoSI.Behaviours.CoordenateMSG_APL import Plataforma_Behav
 from ProjetoSI.Behaviours.Check_Timeouts_APL import Monitorizacao_Behav
 
 class APL_Agent(agent.Agent):
+
+    pacientes_registados = []
+    medicos_registados = []
+    ultimo_contacto = {} # Dicionário: { "jid_do_paciente": timestamp }
+
     async def setup(self):
+        
         print("Agent {}".format(str(self.jid)) + "Agente Plataforma (APL) a iniciar...")
         
         # 1. Inicializar a Base de Dados Central (Memória do Agente)

@@ -1,22 +1,31 @@
 from Classes.Position import Position
 
 class PatientProfile:
-    def __init__(self, jid, disease, blood_type, x, y, history="Início da monitorização"):
+    # Mudamos para receber listas []
+    def __init__(self, jid: str, diseases: list, pos: Position, device_types: list):
         self.jid = jid
-        self.disease = disease       # Diabetes, Hipertensão ou DPOC 
-        self.position = Position(x, y)
+        self.disease = diseases       # Agora guarda a lista de doenças
+        self.position = pos
+        self.device_type = device_types # Agora guarda a lista de dispositivos
 
     def getJID(self):
         return self.jid
 
     def getDisease(self):
-        return self.disease
-    
+        return self.disease # Retorna a lista
+
     def getPosition(self):
         return self.position
 
+    def getDeviceType(self):
+        return self.device_type
+
+    # --- Setters ---
+    def setPosition(self, position: Position):
+        self.position = position
+
     def toString(self):
         return ("PatientProfile [JID=" + str(self.jid) + 
-                ", Doença=" + str(self.disease) + 
-                ", Localização=" + self.position.toString() + "]")
-  
+                ", Doenças=" + str(self.disease) + 
+                ", Localização=" + self.position.toString() + 
+                ", Dispositivos=" + str(self.device_type) + "]")

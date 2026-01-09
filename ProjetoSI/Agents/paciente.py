@@ -4,6 +4,8 @@ from ProjetoSI.Behaviours.Register_AP import RegisterPatient_Behav
 from ProjetoSI.Behaviours.ReceiveVS_AP import ReceiveMessages_Behav
 
 class PatientAgent(agent.Agent):
+    perfil = None
+    
     async def setup(self):
         print("Agent {}".format(str(self.jid)) + " Agente Paciente (AP) a iniciar...")
         
