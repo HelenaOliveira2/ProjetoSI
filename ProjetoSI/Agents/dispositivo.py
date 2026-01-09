@@ -1,5 +1,5 @@
 from spade import agent
-from ProjetoSI.Behaviours.Sensor_AD_antigo import MonitoringSensor_Behav
+from Behaviours.Sensor_AD import MonitoringSensor_Behav
 
 class DeviceAgent(agent.Agent):
     sensores = []

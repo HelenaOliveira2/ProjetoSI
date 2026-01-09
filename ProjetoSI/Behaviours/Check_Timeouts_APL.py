@@ -1,54 +1,21 @@
 import time
-from spade.behaviour import PeriodicBehaviour
-from spade.message import Message
-
-class Monitorizacao_Behav(PeriodicBehaviour):
-    async def run(self):
-        agora = time.time()
-        contactos = self.agent.get("ultimo_contacto")
-        
-        # Criamos uma lista das chaves para poder iterar e remover se necessário
-        for paciente_jid in list(contactos.keys()):
-            ultimo_visto = contactos[paciente_jid]
-            
-            # Requisito: Verifica se houve ausência prolongada (ex: 20 segundos sem sinal)
-            if agora - ultimo_visto > 20:
-                print("Agent {}: [FALHA] Perda de contacto com {} detetada.".format(
-                    str(self.agent.jid), paciente_jid))
-                
-                # Envia FAILURE apenas para o Agente Alerta (AA)
-                # O AA decidirá se escala isto para um médico ou se apenas regista o erro
-                aa_jid = self.agent.get("aa_jid")
-                
-                msg_err = Message(to=aa_jid)
-                msg_err.set_metadata("performative", "failure")
-                msg_err.set_metadata("paciente_jid", str(paciente_jid))
-                msg_err.body = "Alerta de Sistema: O paciente {} deixou de enviar dados.".format(paciente_jid)
-                
-                await self.send(msg_err)
-                print("Agent {}: Notificação de falha enviada ao AA.".format(str(self.agent.jid)))
-                
-                # Remove do dicionário para não enviar o alerta repetidamente
-                del contactos[paciente_jid]
-
-
-import time
 import jsonpickle
+import math
 from spade.behaviour import PeriodicBehaviour
 from spade.message import Message
 
 class Monitorizacao_Behav(PeriodicBehaviour):
     async def run(self):
         agora = time.time()
-        # 'contactos' é o dicionário self.agent.ultimo_contacto
         contactos = self.agent.ultimo_contacto 
         
         for p_jid in list(contactos.keys()):
-            # Se não recebemos nada deste JID há mais de 30 segundos
+            # 30 segundos de silêncio = Falha Crítica
             if agora - contactos[p_jid] > 30:
-                print(f"APL: [FALHA] Detetada ausência de dados de {p_jid}!")
+                print("Agent {}: [CRITICAL] Perda de contacto com o paciente {}!".format(
+                    str(self.agent.jid), p_jid))
 
-                # 1. Vamos buscar o perfil dele para saber onde ele está e o que tem
+                # 1. Procurar o perfil do paciente
                 p_perfil = None
                 for p in self.agent.pacientes_registados:
                     if p.getJID() == p_jid:
@@ -56,16 +23,41 @@ class Monitorizacao_Behav(PeriodicBehaviour):
                         break
                 
                 if p_perfil:
-                    # 2. Informamos o AA usando a performativa FAILURE
-                    aa_jid = self.agent.get("aa_jid")
-                    msg_err = Message(to=aa_jid)
-                    msg_err.set_metadata("performative", "failure")
-                    
-                    # Mandamos o perfil para o AA saber QUEM falhou
-                    # O sinal vital vai como None para indicar que NÃO HÁ dados
-                    msg_err.body = jsonpickle.encode([None, p_perfil])
-                    
-                    await self.send(msg_err)
-                
-                # 3. Removemos do dicionário para não gerar alertas infinitos
+                    # Obter a lista de doenças do paciente (ex: ["Diabetes", "Hipertensao"])
+                    doencas_paciente = p_perfil.getDisease() 
+
+                    # 2. Procurar médicos que tenham uma especialidade que trate estas doenças
+                    candidatos = []
+                    for m in self.agent.medicos_registados:
+                        # Verificamos se a especialidade do médico está na lista de doenças do paciente
+                        if m.getSpecialty() in doencas_paciente and m.isAvailable():
+                            candidatos.append(m)
+
+                    if candidatos:
+                        # 3. Selecionar o especialista mais próximo do paciente
+                        melhor_medico = None
+                        dist_min = 10000.0
+                        for m in candidatos:
+                            dist = math.sqrt(
+                                math.pow(m.getPosition().getX() - p_perfil.getPosition().getX(), 2) +
+                                math.pow(m.getPosition().getY() - p_perfil.getPosition().getY(), 2)
+                            )
+                            if dist < dist_min:
+                                dist_min = dist
+                                melhor_medico = m
+
+                        if melhor_medico:
+                            print("Agent {}: A avisar especialista em {} (Médico {}) sobre falha no paciente {}.".format(
+                                str(self.agent.jid), melhor_medico.getSpecialty(), melhor_medico.getAgent(), p_jid))
+                            
+                            msg_med = Message(to=str(melhor_medico.getAgent()))
+                            msg_med.set_metadata("performative", "failure")
+                            msg_med.body = jsonpickle.encode(p_perfil)
+                        
+                            await self.send(msg_med)
+                    else:
+                        print("Agent {}: ERRO: Paciente {} offline e nenhum dos seus especialistas disponível!".format(
+                            str(self.agent.jid), p_jid))
+
+                # 4. Remover do dicionário para não repetir o alerta no próximo ciclo do Periodic
                 del contactos[p_jid]

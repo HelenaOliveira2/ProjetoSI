@@ -1,11 +1,11 @@
 from spade import agent
-from ProjetoSI.Behaviours.Send_vitals_AP import SendVitals_Behav
-from ProjetoSI.Behaviours.Register_AP import RegisterPatient_Behav
-from ProjetoSI.Behaviours.ReceiveVS_AP import ReceiveMessages_Behav
+from Behaviours.Send_vitals_AP import SendVitals_Behav
+from Behaviours.Register_AP import RegisterPatient_Behav
+from Behaviours.ReceiveVS_AP import ReceiveMessages_Behav
 
 class PatientAgent(agent.Agent):
     perfil = None
-    
+
     async def setup(self):
         print("Agent {}".format(str(self.jid)) + " Agente Paciente (AP) a iniciar...")
         

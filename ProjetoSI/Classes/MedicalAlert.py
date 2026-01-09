@@ -1,12 +1,15 @@
-from Classes.Position import Position
-from Classes.Vital_Signs import VitalSigns
-from Classes.Patient_Profile import PatientProfile
+import jsonpickle
 
 class MedicalAlert:
-    def __init__(self, level, vitals: VitalSigns, profile: PatientProfile):
-        self.level = level       # Informativo, Urgente ou Crítico
-        self.vitals = vitals     # Os sinais vitais que geraram o alerta
-        self.profile = profile   # O perfil completo (contém JID, Doença e Posição)
+    """
+    Objeto que encapsula o alerta gerado.
+    Contém o nível de gravidade, os sinais vitais que originaram o alerta
+    e o perfil do paciente (que indica a doença/especialidade).
+    """
+    def __init__(self, level: str, vitals, profile):
+        self.level = level       # "inform", "urgente" ou "critico"
+        self.vitals = vitals     # Objeto VitalSigns
+        self.profile = profile   # Objeto PatientProfile (tem a doença e o JID do paciente)
 
     def getLevel(self):
         return self.level
@@ -17,16 +20,22 @@ class MedicalAlert:
     def getProfile(self):
         return self.profile
 
-    # Atalhos úteis para o Médico não ter de escavar muito no objeto
+    def getDisease(self):
+        # Atalho para saber a doença diretamente (útil para a Plataforma escolher o Médico)
+        return self.profile.getDisease()
+
     def getPatientJID(self):
         return self.profile.getAgent()
 
-    def getPosition(self):
-        return self.profile.getPosition()
-
     def toString(self):
+<<<<<<< HEAD
         return "MedicalAlert [Nível={}] para o Paciente: {}".format(
             self.level, self.profile.getAgent()
         )
     
 
+=======
+        return "MedicalAlert [Nivel={}, Doenca={}, Paciente={}]".format(
+            self.level, self.profile.getDisease(), self.profile.getAgent()
+        )
+>>>>>>> 5920555bec1166e737b12f46fc4d4384653de834

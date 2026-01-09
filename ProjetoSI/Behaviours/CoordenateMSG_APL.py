@@ -1,69 +1,3 @@
-import jsonpickle
-import time
-from spade.behaviour import CyclicBehaviour
-from spade.message import Message
-
-class Plataforma_Behav(CyclicBehaviour):
-    async def run(self):
-        # 1. Recebe mensagens de qualquer agente
-        msg = await self.receive(timeout=10)
-        
-        if msg:
-            perf = msg.get_metadata("performative")
-            sender_id = str(msg.sender)
-
-            # --- SUBSCRIBE ---
-            if perf == "subscribe":
-                perfil = jsonpickle.decode(msg.body)
-                self.agent.get("perfis_pacientes")[sender_id] = perfil
-                # Guardamos o tempo para o PeriodicBehaviour vigiar
-                self.agent.get("ultimo_contacto")[sender_id] = time.time()
-                print("Agent {}: Paciente {} registado com sucesso.".format(str(self.agent.jid), sender_id))
-
-            # ---  INFORM / FAILURE ---
-            elif perf == "inform" or perf == "failure":
-                # Atualiza contacto para evitar timeout
-                self.agent.get("ultimo_contacto")[sender_id] = time.time()
-                
-                # Reencaminha exatamente o que recebeu para o Agente Alerta (AA)
-                aa_jid = self.agent.get("aa_jid")
-                msg_aa = Message(to=aa_jid)
-                msg_aa.set_metadata("performative", perf)
-                msg_aa.body = msg.body # Mantém o objeto VitalSigns lá dentro
-                
-                await self.send(msg_aa)
-                print("Agent {}: Dados de {} enviados para Triagem (AA).".format(str(self.agent.jid), sender_id))
-            
-            
-            # O Médico (AM) pede à APL para enviar algo ao Paciente
-            # O Médico envia uma performativa customizada (ex: 'recomendacao_terapeutica')
-            # O corpo da mensagem (msg.body) deve conter o JID do paciente alvo para a APL saber para quem enviar
-            elif perf == "request":
-            #elif perf in ["contacto_paciente", "recomendacao_terapeutica", "observacao_presencial"]:
-                
-                # O médico mandou o JID no corpo (ou podíamos usar metadata)
-                paciente_alvo = msg.body 
-                
-                msg_ap = Message(to=str(paciente_alvo))
-                msg_ap.set_metadata("performative", "propose") 
-                
-                # Criamos uma descrição amigável baseada na performativa
-                descricoes = {
-                    "contacto_paciente": "Contacto urgente solicitado pelo médico.",
-                    "recomendacao_terapeutica": "Nova recomendação de tratamento disponível.",
-                    "observacao_presencial": "Necessita de deslocação ao hospital para observação."
-                }
-                
-                # O corpo agora leva a frase legível
-                msg_ap.body = descricoes.get(perf)
-                
-                await self.send(msg_ap)
-                
-                print("Agent {}:".format(str(self.agent.jid)) + " Intervenção '{}' reencaminhada para o Paciente {}.".format(perf, paciente_alvo))
-
-    async def on_end(self):
-        print("Agent {}: Comportamento da Plataforma terminado.".format(str(self.agent.jid)))
-
 import math
 import jsonpickle
 from spade.behaviour import CyclicBehaviour
@@ -76,192 +10,95 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
         msg = await self.receive(timeout=10)
 
         if msg:
-            performative = msg.get_metadata("performative")
+            perf = msg.get_metadata("performative").lower()
             sender = str(msg.sender)
 
-            # --- REGISTO (Igual ao Taxi) ---
-            if performative == "subscribe":
-                perfil = jsonpickle.decode(msg.body)
-                if isinstance(perfil, InformPhysician):
-                    self.agent.medicos_registados.append(perfil)
+            # --- A. REGISTO ---
+            if perf == "subscribe":
+                obj = jsonpickle.decode(msg.body)
+                if isinstance(obj, InformPhysician):
+                    self.agent.medicos_registados.append(obj)
                     print("Agent {}: Médico {} registado!".format(str(self.agent.jid), sender))
-                elif isinstance(perfil, PatientProfile):
-                    self.agent.pacientes_registados.append(perfil)
+                elif isinstance(obj, PatientProfile):
+                    self.agent.pacientes_registados.append(obj)
                     print("Agent {}: Paciente {} registado!".format(str(self.agent.jid), sender))
 
-            # --- RECEBER ALERTA DO AA (O AA já classificou como Informativo, Urgente ou Crítico) ---
-            elif performative == "request" and sender == self.agent.get("aa_jid"):
-                alerta = jsonpickle.decode(msg.body) # [nivel, perfil_paciente, vitals]
-                nivel = alerta[0]
-                perfil_p = alerta[1]
-
-                print("Agent {}: AA reportou alerta {} para o paciente {}".format(
-                    str(self.agent.jid), nivel, perfil_p.getJID()))
+            # --- B. TRATAMENTO DE ALERTAS (INFORM, URGENT, CRITICAL) ---
+            elif (perf in ["inform", "urgent", "critical"]) and sender == str(self.agent.get("aa_jid")):
                 
-                if nivel == "informativo":
-                    # Apenas log ou envio simples sem bloquear o médico
-                    print("Agent {}: Alerta informativo. Apenas registar log.".format(str(self.agent.jid)))
+                # O AA deve enviar: [objeto_vitals, objeto_perfil, "Especialidade"]
+                dados = jsonpickle.decode(msg.body)
+                vitals_obj = dados[0]
+                perfil_p = dados[1]
+                especialidade_req = dados[2] # Ex: "Diabetes" ou "Cardiologia"
 
-                # --- PROCURAR MÉDICO ---
-                melhor_medico = None
-                list_pos = -1
-                dist_min = 1000.0
+                # Identificamos o sensor para o print ser bonito para o stor
+                sensor_nome = vitals_obj.__class__.__name__
 
-                for idx, medico in enumerate(self.agent.medicos_registados):
-                    
-                    if medico.getSpecialty() == perfil_p.getDisease() and medico.isAvailable():
+                print("Agent {}: Alerta [{}] do sensor {} (Especialidade: {}) para o paciente {}".format(
+                    str(self.agent.jid), perf.upper(), sensor_nome, especialidade_req, perfil_p.getJID()))
+
+                # 1. Procurar médicos que tenham EXATAMENTE a especialidade do sensor
+                candidatos = []
+                for m in self.agent.medicos_registados:
+                    if m.getSpecialty() == especialidade_req and m.isAvailable():
+                        candidatos.append(m)
+
+                alerta_entregue = False
+                while candidatos and not alerta_entregue:
+                    # 2. Selecionar o médico daquela especialidade mais próximo
+                    melhor_medico = None
+                    dist_min = 10000.0
+                    for m in candidatos:
                         dist = math.sqrt(
-                            math.pow(medico.getPosition().getX() - perfil_p.getPosition().getX(), 2) +
-                            math.pow(medico.getPosition().getY() - perfil_p.getPosition().getY(), 2)
+                            math.pow(m.getPosition().getX() - perfil_p.getPosition().getX(), 2) +
+                            math.pow(m.getPosition().getY() - perfil_p.getPosition().getY(), 2)
                         )
                         if dist < dist_min:
                             dist_min = dist
-                            melhor_medico = medico
-                            list_pos = idx
+                            melhor_medico = m
 
-                # Se encontrou médico disponível -> Envia Propose 
-                if list_pos > -1:
-                    print("Agent {}: Médico {} selecionado para o alerta!".format(
-                        str(self.agent.jid), melhor_medico.getAgent()))
-                    
-                    msg_propose = Message(to=melhor_medico.getAgent())
-                    msg_propose.set_metadata("performative", "propose")
-                    msg_propose.body = msg.body 
-                    await self.send(msg_propose)
-
-                    # Atualiza disponibilidade para False 
-                    self.agent.medicos_registados[list_pos].setAvailable(False)
-                
-                else:
-                    print("Agent {}: Nenhum médico disponível para a especialidade {}!".format(
-                        str(self.agent.jid), perfil_p.getDisease()))
-                    # Aqui podias mandar uma mensagem de volta ao AA ou Log de erro
-
-            # --- CONFIRMAÇÃO DO MÉDICO (Intervenção Concluída) ---
-            elif performative == "confirm":
-                print("Agent {}: Médico {} confirmou que a intervenção terminou!".format(
-                    str(self.agent.jid), sender))
-                
-                # Volta a colocar o médico como disponível (Igual ao Taxi ao chegar ao destino)
-                for idx, medico in enumerate(self.agent.medicos_registados):
-                    if medico.getAgent() == sender:
-                        self.agent.medicos_registados[idx].setAvailable(True)
-                        break
-
-        else:
-            print("Agent {}: Sem mensagens recebidas nos últimos 10 segundos.".format(str(self.agent.jid)))
-
-
-import math
-import jsonpickle
-from spade.behaviour import CyclicBehaviour
-from spade.message import Message
-from Classes.Patient_Profile import PatientProfile
-from Classes.MedicalIntervention import InformPhysician
-from Classes.MedicalAlert import MedicalAlert # Importação necessária
-
-class Plataforma_ReceiveBehav(CyclicBehaviour):
-    async def run(self):
-        msg = await self.receive(timeout=10)
-
-        if msg:
-            perf = msg.get_metadata("performative")
-            sender = str(msg.sender)
-
-            # --- A. REGISTO (SUBSCRIBE) ---
-            if perf == "subscribe":
-                perfil = jsonpickle.decode(msg.body)
-                if isinstance(perfil, InformPhysician):
-                    self.agent.medicos_registados.append(perfil)
-                    print("Agent {}: Médico {} registado!".format(str(self.agent.jid), sender))
-                elif isinstance(perfil, PatientProfile):
-                    self.agent.pacientes_registados.append(perfil)
-                    print("Agent {}: Paciente {} registado!".format(str(self.agent.jid), sender))
-
-            # --- B. RECEBER SINAIS DO PACIENTE (INFORM / FAILURE) ---
-            elif perf == "inform" or perf == "failure":
-                p_perfil = None
-                for p in self.agent.pacientes_registados:
-                    if p.getJID() == sender:
-                        p_perfil = p
-                        break
-                
-                if p_perfil:
-                    aa_jid = self.agent.get("aa_jid")
-                    msg_aa = Message(to=aa_jid)
-                    msg_aa.set_metadata("performative", perf)
-                    
-                    sinais = jsonpickle.decode(msg.body)
-                    # Enviamos para o AA avaliar
-                    msg_aa.body = jsonpickle.encode([sinais, p_perfil])
-                    
-                    await self.send(msg_aa)
-                    print("Agent {}: Dados de {} enviados para o AA.".format(str(self.agent.jid), sender))
-
-            # --- C. RECEBER ALERTA DO AA (REQUEST) E REDISTRIBUIR ---
-            elif perf == "request" and sender == self.agent.get("aa_jid"):
-                # CORREÇÃO: Agora recebemos um objeto MedicalAlert em vez de uma lista
-                alerta_obj = jsonpickle.decode(msg.body) 
-                
-                nivel = alerta_obj.getLevel()
-                perfil_p = alerta_obj.getProfile()
-
-                print("Agent {}: Alerta {} para o paciente {}".format(
-                    str(self.agent.jid), nivel.upper(), alerta_obj.getPatientJID()))
-
-                if nivel == "informativo":
-                    print("Agent {}: Alerta informativo registado.".format(str(self.agent.jid)))
-                else:
-                    # 1. Filtramos médicos compatíveis
-                    candidatos = []
-                    for m in self.agent.medicos_registados:
-                        if m.getSpecialty() == perfil_p.getDisease() and m.isAvailable():
-                            candidatos.append(m)
-                    
-                    alerta_entregue = False
-                    while candidatos and not alerta_entregue:
-                        # 2. Encontrar o mais próximo
-                        melhor_medico = None
-                        dist_min = 1000.0
-                        for m in candidatos:
-                            # Usamos getPosition() do perfil do paciente que vem no alerta
-                            dist = math.sqrt(math.pow(m.getPosition().getX() - perfil_p.getPosition().getX(), 2) +
-                                             math.pow(m.getPosition().getY() - perfil_p.getPosition().getY(), 2))
-                            if dist < dist_min:
-                                dist_min = dist
-                                melhor_medico = m
+                    if melhor_medico:
+                        print("Agent {}: A propor caso de {} ao especialista {}...".format(
+                            str(self.agent.jid), especialidade_req, melhor_medico.getAgent()))
                         
-                        if melhor_medico:
-                            print("Agent {}: A propor alerta ao médico {}...".format(str(self.agent.jid), melhor_medico.getAgent()))
-                            msg_prop = Message(to=str(melhor_medico.getAgent()))
-                            msg_prop.set_metadata("performative", "propose")
-                            # Reencaminhamos o objeto MedicalAlert completo para o médico
-                            msg_prop.body = msg.body
-                            await self.send(msg_prop)
+                        msg_prop = Message(to=str(melhor_medico.getAgent()))
+                        msg_prop.set_metadata("performative", "propose")
+                        msg_prop.set_metadata("urgency", perf)
+                        msg_prop.body = msg.body
+                        await self.send(msg_prop)
 
-                            # 3. ESPERAR RESPOSTA (Medida de Contingência)
-                            timeout_med = 5 if nivel == "crítico" else 10
-                            resposta = await self.receive(timeout=timeout_med)
+                        # Se for inform, o médico pode demorar mais. Se for critical, é rápido.
+                        tempo_espera = 5 if perf == "critical" else 15
+                        resposta = await self.receive(timeout=tempo_espera)
 
-                            # O médico responde 'inform' para aceitar
-                            if resposta and resposta.get_metadata("performative") == "inform":
-                                print("Agent {}: Médico {} aceitou o caso.".format(str(self.agent.jid), str(resposta.sender)))
-                                
-                                for idx, med in enumerate(self.agent.medicos_registados):
-                                    if med.getAgent() == str(resposta.sender):
-                                        self.agent.medicos_registados[idx].setAvailable(False)
-                                        break
-                                alerta_entregue = True
-                            else:
-                                print("Agent {}: Médico {} falhou. Redistribuindo...".format(str(self.agent.jid), melhor_medico.getAgent()))
-                                candidatos.remove(melhor_medico)
+                        if resposta and str(resposta.sender) == melhor_medico.getAgent() and resposta.get_metadata("performative") == "inform":
+                            print("Agent {}: Especialista {} aceitou o alerta de {}.".format(
+                                str(self.agent.jid), str(resposta.sender), especialidade_req))
+                            melhor_medico.setAvailable(False)
+                            alerta_entregue = True
+                        else:
+                            print("Agent {}: Médico {} (Especialidade: {}) falhou. Tentando outro...".format(
+                                str(self.agent.jid), melhor_medico.getAgent(), especialidade_req))
+                            candidatos.remove(melhor_medico)
 
-            # --- D. CONFIRMAÇÃO FINAL (CONFIRM) ---
+                if not alerta_entregue:
+                    print("Agent {}: AVISO: Nenhum especialista em {} disponível!".format(
+                        str(self.agent.jid), especialidade_req))
+
+            # --- C. FIM DE INTERVENÇÃO (CONFIRM) ---
             elif perf == "confirm":
-                print("Agent {}: Médico {} terminou intervenção.".format(str(self.agent.jid), sender))
-                for idx, med in enumerate(self.agent.medicos_registados):
+                for med in self.agent.medicos_registados:
                     if med.getAgent() == sender:
-                        self.agent.medicos_registados[idx].setAvailable(True)
+                        med.setAvailable(True)
+                        print("Agent {}: Médico {} está novamente livre.".format(str(self.agent.jid), sender))
                         break
-        else:
-            print("Agent {}: Nenhuma mensagem recebida.".format(str(self.agent.jid)))
+
+            # --- D. REENCAMINHAR DO MÉDICO PARA O PACIENTE ---
+            elif perf == "inform" and msg.get_metadata("purpose") == "delivery":
+                data = jsonpickle.decode(msg.body)
+                msg_ap = Message(to=data["destinatario"])
+                msg_ap.set_metadata("performative", "propose") 
+                msg_ap.body = data["mensagem"]
+                await self.send(msg_ap)
+                print("Agent {}: Recomendação do médico enviada para {}.".format(str(self.agent.jid), data["destinatario"]))

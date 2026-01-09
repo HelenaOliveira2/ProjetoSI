@@ -1,82 +1,105 @@
 import time
 import spade
 import asyncio
+from spade import wait_until_finished
+
+# Importação dos agentes
 from Agents.plataforma import APL_Agent
 from Agents.alerta import AlertAgent
 from Agents.medico import MedicalAgent
 from Agents.paciente import PatientAgent
 from Agents.dispositivo import DeviceAgent
-from Classes.Position import Position
-from Classes.MedicalIntervention import InformPhysician
 
-XMPP_SERVER = 'localhost' # Ou o teu servidor desktop-u70noa0
+XMPP_SERVER = 'localhost'
 PASSWORD = 'NOPASSWORD'
 
 async def main():
-    # 1. Iniciar a Plataforma (APL) - O "Cérebro" Central
-    apl_jid = "apl@" + XMPP_SERVER
+    print("Iniciando Sistema de Monitorizacao Medica...")
+
+    # 1. Iniciar a Plataforma e o Alerta (Base do Sistema)
+    apl_jid = 'plataforma@' + XMPP_SERVER
     apl_agent = APL_Agent(apl_jid, PASSWORD)
     await apl_agent.start()
-
-    # 2. Iniciar o Agente Alerta (AA)
-    aa_jid = "aa@" + XMPP_SERVER
+    
+    aa_jid = 'agente_alerta@' + XMPP_SERVER
     aa_agent = AlertAgent(aa_jid, PASSWORD)
-    
-    # Configurar o AA com a lista de médicos (Objetos InformPhysician)
-    # Exemplo: 3 médicos para 3 especialidades/doenças
-    medicos_info = [
-        InformPhysician("medico_diabetes@" + XMPP_SERVER, Position(10, 10), "Diabetes"),
-        InformPhysician("medico_dpoc@" + XMPP_SERVER, Position(30, 40), "DPOC"),
-        InformPhysician("medico_hiper@" + XMPP_SERVER, Position(50, 10), "Hipertensão")
-    ]
-    aa_agent.set("lista_medicos", medicos_info)
-    aa_agent.set("perfis_pacientes", {}) # Será preenchido via APL
-    
+    aa_agent.set("apl_jid", apl_jid)
     await aa_agent.start()
 
-    # 3. Iniciar os Agentes Médicos (AM)
-    am_agents = []
-    for info in medicos_info:
-        am_agent = MedicalAgent(info.getAgent(), PASSWORD)
-        am_agent.set("apl_jid", apl_jid) # O médico precisa de saber onde está a APL
-        await am_agent.start()
-        am_agents.append(am_agent)
+    time.sleep(1)
 
-    # 4. Iniciar os Agentes Pacientes (AP) e Dispositivos (AD)
-    # Exemplo para 1 Paciente (podes fazer loop para 3)
-    paciente_jid = "paciente1@" + XMPP_SERVER
-    dispositivo_jid = "dispositivo1@" + XMPP_SERVER
-
-    # Agente Paciente (AP)
-    ap_agent = PatientAgent(paciente_jid, PASSWORD)
-    ap_agent.set("platform_register", apl_jid) # JID para o subscribe
-    ap_agent.set("device_jid", dispositivo_jid)
+    # 2. Iniciar Médicos com Especialidades Diferentes (Para testar a triagem)
+    especialidades = ["Diabetes", "Hipertensão", "DPOC"]
+    medicos_list = []
     
-    # Criar o perfil do paciente (Diabetes)
-    from Classes.Patient_Profile import PatientProfile
-    perfil = PatientProfile(paciente_jid, "Diabetes", 15, 15)
-    ap_agent.set("perfil", perfil)
+    for i, esp in enumerate(especialidades, 1):
+        m_jid = 'medico_{}@'.format(esp.lower()) + XMPP_SERVER
+        m_agent = MedicalAgent(m_jid, PASSWORD)
+        m_agent.set('platform_register', apl_jid)
+        m_agent.set('especialidade_inicial', esp) # Para o setup do médico saber o que é
+        
+        await m_agent.start()
+        medicos_list.append(m_agent)
+
+    time.sleep(1)
+
+    # 3. Iniciar os 3 Pacientes (Conforme o enunciado)
+    pacientes_list = []
+    for i in range(1, 4):
+        p_jid = 'paciente{}@'.format(i) + XMPP_SERVER
+        p_agent = PatientAgent(p_jid, PASSWORD)
+        p_agent.set('platform_register', apl_jid)
+        p_agent.set('aa_jid', aa_jid)
+        
+        await p_agent.start()
+        pacientes_list.append(p_agent)
+
+    time.sleep(1)
+
+    # 4. Iniciar os Agentes Dispositivo (AD)
+    # Cada dispositivo precisa de saber o JID do seu Paciente para lhe mandar dados
+    # 4. Iniciar os Agentes Dispositivo (AD)
+    dispositivos_list = []
     
-    await ap_agent.start()
+    # Mapeamento para garantir a classe correta
+    mapeamento = {
+        "Diabetes": "MedidorGlicemia",
+        "Hipertensão": "Tensiometro",
+        "DPOC": "Oximetro"
+    }
 
-    # Agente Dispositivo (AD)
-    ad_agent = DeviceAgent(dispositivo_jid, PASSWORD)
-    ad_agent.set("patient_jid", paciente_jid)
-    await ad_agent.start()
+    for i, p_agent in enumerate(pacientes_list, 1):
+        p_jid = str(p_agent.jid)
+        
+        # Vamos buscar as doenças que foram sorteadas para este paciente
+        # (Assumindo que guardaste no setup ou que podes aceder ao perfil)
+        doencas = p_agent.get("doencas_iniciais") 
 
-    print("--- SISTEMA DE SAÚDE INICIALIZADO COM SUCESSO ---")
+        for doenca in doencas:
+            ad_jid = f"sensor_{doenca.lower()}_{i}@" + XMPP_SERVER
+            ad_agent = DeviceAgent(ad_jid, PASSWORD)
+            
+            ad_agent.set('paciente_alvo', p_jid)
+            ad_agent.set('tipo_dispositivo', mapeamento[doenca])
+            ad_agent.set('tipo_doenca', doenca)
+            
+            await ad_agent.start()
+            dispositivos_list.append(ad_agent)
+            
+    print('Sistema configurado com 3 Especialistas, 3 Pacientes e 3 Dispositivos.')
+    
+    
 
-    # Manter o sistema a correr
-    try:
-        while True:
-            await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        print("A desligar agentes...")
-        await ad_agent.stop()
-        await ap_agent.stop()
-        for am in am_agents: await am.stop()
-        await aa_agent.stop()
-        await apl_agent.stop()
+    # Manter a correr
+    await wait_until_finished(apl_agent)
 
-if __name__ == "__main__":
+    # Shutdown
+    print('A terminar agentes...')
+    for d in dispositivos_list: await d.stop()
+    for p in pacientes_list: await p.stop()
+    for m in medicos_list: await m.stop()
+    await aa_agent.stop()
+    await apl_agent.stop()
+
+if __name__ == '__main__':
     spade.run(main())

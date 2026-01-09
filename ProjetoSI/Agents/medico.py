@@ -1,5 +1,5 @@
 from spade.agent import Agent
-from ProjetoSI.Behaviours.Receive_alerts_AM import ReceberAlertas_Behav
+from Behaviours.Receive_alerts_AM import ReceiveAlerts_Behav
 
 class MedicalAgent(Agent):
     async def setup(self):
@@ -8,6 +8,6 @@ class MedicalAgent(Agent):
 
         print("Agent {}".format(str(self.jid)) + " Agente Medico (AM) a iniciar...")
         
-        a = ReceberAlertas_Behav()
+        a = ReceiveAlerts_Behav()
 
         self.add_behaviour(a)
