@@ -56,12 +56,4 @@ class EvaluateVS_Behav(CyclicBehaviour):
                     print(f"AA: Alerta {nivel_alerta.upper()} de {especialidade} enviado para Plataforma.")
                 
             except Exception as e:
-<<<<<<< HEAD
-                print(f"Agent {self.agent.jid}: Erro ao processar mensagem: {e}")
-
-        else:
-            # print("Agent {}: A aguardar dados...".format(str(self.agent.jid)))
-            pass 
-=======
                 print(f"AA Erro: {e}")
->>>>>>> 8c696810883623e294ac525b841eefcd59106587

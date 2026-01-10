@@ -28,8 +28,4 @@ class MedicalAlert:
     def toString(self):
         return "MedicalAlert [Nivel={}, Doenca={}, Paciente={}]".format(
             self.level, self.profile.getDisease(), self.profile.getAgent()
-<<<<<<< HEAD
         )
-=======
-        )
->>>>>>> 8c696810883623e294ac525b841eefcd59106587
