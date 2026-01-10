@@ -61,6 +61,15 @@ class Monitorizacao_Behav(PeriodicBehaviour):
                                 msg_med.body = jsonpickle.encode(p_perfil)
                                 
                                 await self.send(msg_med)
+
+                                # --- NOVO: Esperar pelo AGREE ---
+                                resp = await self.receive(timeout=10)
+                                if resp and resp.get_metadata("performative") == "agree":
+                                    print(f"Agent {self.agent.jid}: Médico confirmou receção da falha.")
+                                    melhor_medico.setAvailable(False) # Marca como ocupado
+                                else:
+                                    print(f"Agent {self.agent.jid}: Médico não respondeu ao alerta de falha.")
+                                # -------------------------------
                             
                         else:
                             print(f"Agent {self.agent.jid}: AVISO - Sensor de {doenca} falhou e não há médicos de {doenca} disponíveis!")

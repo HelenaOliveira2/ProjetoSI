@@ -32,4 +32,14 @@ class RegisterDoctor_Behav(OneShotBehaviour):
             msg.set_metadata("performative", "subscribe")
             
             await self.send(msg)
+
+            # ... depois do send(msg)
+            print(f"Agent {self.agent.jid}: À espera de confirmação...")
+            resposta = await self.receive(timeout=10)
+            if resposta and resposta.get_metadata("performative") == "agree":
+                print(f"Agent {self.agent.jid}: Registo confirmado pela Plataforma!")
+            else:
+                print(f"Agent {self.agent.jid}: Erro/Timeout no registo.")
+
+
             print(f"Agent {self.agent.jid}: Pedido de registo enviado à Plataforma.")

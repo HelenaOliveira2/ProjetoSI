@@ -47,4 +47,13 @@ class RegisterPatient_Behav(OneShotBehaviour):
             msg.body = jsonpickle.encode(profile)
             
             await self.send(msg)
+
+            # ... depois do send(msg)
+            print(f"Agent {self.agent.jid}: À espera de confirmação...")
+            resposta = await self.receive(timeout=10)
+            if resposta and resposta.get_metadata("performative") == "agree":
+                print(f"Agent {self.agent.jid}: Registo confirmado pela Plataforma!")
+            else:
+                print(f"Agent {self.agent.jid}: Erro/Timeout no registo.")
+
             print(f"Agent {self.agent.jid}: Registado na Plataforma com doenças: {doencas_escolhidas}")

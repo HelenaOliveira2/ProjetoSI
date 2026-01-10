@@ -18,7 +18,7 @@ class EvaluateVS_Behav(CyclicBehaviour):
                 vitals = jsonpickle.decode(msg.body)
                 
                 # Definimos a especialidade e nível baseados no tipo de objeto
-                nivel_alerta = "inform"
+                nivel_alerta = "informative"
                 especialidade = "Geral"
 
                 # --- 2. LÓGICA DE TRIAGEM POR TIPO DE OBJETO ---

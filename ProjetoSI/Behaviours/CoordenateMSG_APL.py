@@ -35,8 +35,14 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
                
                     print("Agent {}: Paciente {} registado!".format(str(self.agent.jid), sender))
 
+                # Resposta de confirmação (Agree)
+                msg_resp = Message(to=sender)
+                msg_resp.set_metadata("performative", "agree")
+                msg_resp.body = "Registo Aceite"
+                await self.send(msg_resp)
+
             # --- B. TRATAMENTO DE ALERTAS (INFORM, URGENT, CRITICAL) ---
-            elif (perf in ["inform", "urgent", "critical"]) and sender == str(self.agent.get("aa_jid")):
+            elif (perf in ["informative", "urgent", "critical"]) and sender == str(self.agent.get("aa_jid")):
                 
                 # O AA envia: [objeto_vitals, None, "Especialidade"]
                 dados = jsonpickle.decode(msg.body)
@@ -65,7 +71,6 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
                     self.agent.ultimo_contacto[jid_paciente_alvo] = {}
 
                 # 3. Guardar o tempo ESPECÍFICO desta doença
-                # Ex: self.agent.ultimo_contacto['paciente1']['Diabetes'] = time.time()
                 self.agent.ultimo_contacto[jid_paciente_alvo][especialidade_req] = time.time()
                 
                 sensor_nome = vitals_obj.__class__.__name__
@@ -101,8 +106,11 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
                         print(f"Agent {self.agent.jid}: A propor caso de {especialidade_req} ao especialista {melhor_medico.getAgent()}...")
                         
                         msg_prop = Message(to=str(melhor_medico.getAgent()))
-                        msg_prop.set_metadata("performative", "propose")
-                        msg_prop.set_metadata("urgency", perf)
+                        
+                        # --- ALTERAÇÃO AQUI: Enviamos a performative original (inform, urgent, critical) ---
+                        msg_prop.set_metadata("performative", perf) 
+                        # ---------------------------------------------------------------------------------
+                        
                         msg_prop.body = msg.body
                         await self.send(msg_prop)
 
@@ -111,7 +119,7 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
                         resposta = await self.receive(timeout=tempo_espera)
 
                         # O médico responde "accept-proposal" ou "inform" a dizer que aceitou
-                        if resposta and resposta.get_metadata("performative") == "accept-proposal":
+                        if resposta and resposta.get_metadata("performative") == "agree":
                              print(f"Agent {self.agent.jid}: Especialista {resposta.sender} ACEITOU o alerta de {especialidade_req}.")
                              melhor_medico.setAvailable(False)
                              alerta_entregue = True
@@ -127,7 +135,7 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
                         print(f"Agent {self.agent.jid}: Médico {sender} concluiu intervenção e está livre.")
 
             # --- D. REENCAMINHAR DO MÉDICO PARA O PACIENTE ---
-            elif perf == "inform" and msg.get_metadata("purpose") == "delivery":
+            elif perf == "inform":
                 try:
                     data = jsonpickle.decode(msg.body)
                     msg_ap = Message(to=data["destinatario"])

@@ -11,13 +11,12 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
         if msg:
             perf_recebida = msg.get_metadata("performative")
             
-            if perf_recebida == "propose":
-                
+            # --- ALTERAÇÃO AQUI: Verificamos as performatives de alerta ---
+            if perf_recebida in ["informative", "urgent", "critical"]:
                 
                 # 1. Ler Dados da Mensagem
-                # O nível de urgência está nos metadados
-                nivel = msg.get_metadata("urgency")
-                if not nivel: nivel = "inform"
+                # O nível de urgência é a própria performative
+                nivel = perf_recebida
                 
                 # 2. O corpo é uma LISTA [vitals, None, especialidade]
                 conteudo = jsonpickle.decode(msg.body)
@@ -30,9 +29,9 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                 print(f"Prioridade: {nivel.upper()} | Paciente: {paciente_jid}")
 
                 # 2. ACEITAÇÃO IMEDIATA (Protocolo de Disponibilidade)
-                # Respondemos 'accept-proposal' (ou inform) à Plataforma para dizer: "Eu assumo este paciente!"
+                # Respondemos 'accept-proposal' à Plataforma
                 reply = Message(to=str(msg.sender))
-                reply.set_metadata("performative", "accept-proposal") # A Plataforma espera isto para desbloquear o loop
+                reply.set_metadata("performative", "agree") # A Plataforma espera isto para desbloquear o loop
                 reply.body = "A avaliar paciente..."
                 await self.send(reply)
 
@@ -43,14 +42,15 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                 decisao_medica = ""
                 tempo_intervencao = 0
 
-                # Ajustamos as strings para bater certo com o que o AA envia ("critical", "urgent")
-                if nivel == "critical" or nivel == "crítico":
+                # Ajustamos as strings para bater certo com as performatives
+                if nivel == "critical":
                     decisao_medica = "PEDIDO DE OBSERVAÇÃO PRESENCIAL (IMEDIATO)"
                     tempo_intervencao = 5 
-                elif nivel == "urgent" or nivel == "urgente":
+                elif nivel == "urgent":
                     decisao_medica = "RECOMENDAÇÃO TERAPÊUTICA (AJUSTE DE DOSAGEM)"
                     tempo_intervencao = 3
-                else:
+                elif nivel == "informative":
+                    
                     decisao_medica = "CONTACTO COM O PACIENTE PARA MONITORIZAÇÃO"
                     tempo_intervencao = 2
 
@@ -66,7 +66,7 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                 # Enviar decisão para a Plataforma entregar ao paciente
                 msg_entrega = Message(to=str(msg.sender)) # msg.sender é a Plataforma
                 msg_entrega.set_metadata("performative", "inform") 
-                msg_entrega.set_metadata("purpose", "delivery") 
+                #?msg_entrega.set_metadata("purpose", "delivery") 
 
                 # Guardamos o destinatário e a mensagem num dicionário
                 conteudo_entrega = {
@@ -88,37 +88,45 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                 print(f"[AM] Agent {self.agent.jid}: Intervenção concluída. Disponível para novos alertas.\n")
 
             elif perf_recebida == "failure":
-                    
                     conteudo = jsonpickle.decode(msg.body)
-                    # O conteudo é o perfil do paciente
                     paciente_jid = conteudo.getJID()
-                    # Tentamos ler qual a doença que falhou dos metadados (se a Plataforma enviou)
                     doenca_falhada = msg.get_metadata("disease_failed")
                     if not doenca_falhada: doenca_falhada = "Sensor Desconhecido"
                     
                     print(f"\n[AM] Agent {self.agent.jid}: RECEBI NOTIFICAÇÃO DE FALHA TÉCNICA ({doenca_falhada})")
-                    print(f"Paciente afetado: {paciente_jid}")
+                    
+                    # --- NOVO: Enviar AGREE para confirmar receção ---
+                    reply = Message(to=str(msg.sender))
+                    reply.set_metadata("performative", "agree") 
+                    reply.body = "Falha rececionada"
+                    await self.send(reply)
+                    print(f"[AM] Agent {self.agent.jid}: Confirmei receção da falha (AGREE).")
+                    # -------------------------------------------------
 
                     print(f"[AM] Agent {self.agent.jid}: A verificar registos do equipamento...")
-                    await asyncio.sleep(2) # Simulação rápida
+                    await asyncio.sleep(2) 
 
                     decisao = "CONTACTO TÉCNICO URGENTE (SUBSTITUIÇÃO DE SENSOR)"
-                    
                     print(f"[AM] Agent {self.agent.jid}: Decisão tomada -> {decisao}")
 
-                    # Enviar ordem administrativa para a Plataforma (usamos inform)
+                    # Enviar ordem (INFORM)
                     msg_entrega = Message(to=str(msg.sender)) 
                     msg_entrega.set_metadata("performative", "inform") 
-                    msg_entrega.set_metadata("purpose", "delivery") 
+                    # msg_entrega.set_metadata("purpose", "delivery") # Já não precisas disto se usares a lista
 
-                    conteudo_entrega = {
-                        "destinatario": paciente_jid,
-                        "mensagem": decisao 
-                    }
+                    conteudo_entrega = [paciente_jid, decisao]
                     msg_entrega.body = jsonpickle.encode(conteudo_entrega)
                     
                     await self.send(msg_entrega)
-                    print(f"[AM] Agent {self.agent.jid}: Ordem de suporte técnico enviada.\n")
+                    print(f"[AM] Agent {self.agent.jid}: Ordem de suporte técnico enviada.")
+
+                    # Libertar (CONFIRM)
+                    conf = Message(to=str(msg.sender))
+                    conf.set_metadata("performative", "confirm")
+                    conf.body = "Intervenção Técnica Concluída"
+                    await self.send(conf)
+                    
+                    print(f"[AM] Agent {self.agent.jid}: Intervenção concluída. Disponível para novos alertas.\n")
 
             else:
                 #garante que, se o médico não receber alertas, ele simplesmente ignora e volta a ouvir no próximo ciclo, mantendo o agente "vivo" e atento, sem dar erro por tentar processar uma mensagem vazia.
