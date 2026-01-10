@@ -7,57 +7,64 @@ from spade.message import Message
 class Monitorizacao_Behav(PeriodicBehaviour):
     async def run(self):
         agora = time.time()
+        # O dicionário é: {'paciente_jid': {'Diabetes': timestamp, 'DPOC': timestamp}}
         contactos = self.agent.ultimo_contacto 
         
+        # Iteramos sobre todos os pacientes conhecidos
+        # Usamos list(contactos.keys()) para evitar erro de "dictionary changed size during iteration"
         for p_jid in list(contactos.keys()):
-            # 30 segundos de silêncio = Falha Crítica
-            if agora - contactos[p_jid] > 30:
-                print("Agent {}: [CRITICAL] Perda de contacto com o paciente {}!".format(
-                    str(self.agent.jid), p_jid))
+            
+            # Iteramos sobre as doenças/sensores desse paciente
+            # Se o paciente ainda não tiver doenças registadas no dicionário, avançamos
+            if not isinstance(contactos[p_jid], dict):
+                continue
 
-                # 1. Procurar o perfil do paciente
-                p_perfil = None
-                for p in self.agent.pacientes_registados:
-                    if p.getJID() == p_jid:
-                        p_perfil = p
-                        break
+            for doenca, ultimo_tempo in list(contactos[p_jid].items()):
                 
-                if p_perfil:
-                    # Obter a lista de doenças do paciente (ex: ["Diabetes", "Hipertensao"])
-                    doencas_paciente = p_perfil.getDisease() 
+                # SE PASSARAM MAIS DE 30 SEGUNDOS SEM DADOS DESTA DOENÇA
+                if agora - ultimo_tempo > 30:
+                    print(f"Agent {self.agent.jid}: [CRITICAL] Sensor de {doenca} do paciente {p_jid} deixou de responder!")
 
-                    # 2. Procurar médicos que tenham uma especialidade que trate estas doenças
-                    candidatos = []
-                    for m in self.agent.medicos_registados:
-                        # Verificamos se a especialidade do médico está na lista de doenças do paciente
-                        if m.getSpeciality() in doencas_paciente and m.isAvailable():
-                            candidatos.append(m)
+                    # 1. Procurar o perfil completo do paciente (para enviar ao médico)
+                    p_perfil = None
+                    for p in self.agent.pacientes_registados:
+                        if str(p.getJID()) == p_jid:
+                            p_perfil = p
+                            break
+                    
+                    if p_perfil:
+                        # 2. Procurar APENAS o médico desta especialidade específica
+                        candidatos = []
+                        for m in self.agent.medicos_registados:
+                            if m.getSpeciality() == doenca and m.isAvailable():
+                                candidatos.append(m)
 
-                    if candidatos:
-                        # 3. Selecionar o especialista mais próximo do paciente
-                        melhor_medico = None
-                        dist_min = 10000.0
-                        for m in candidatos:
-                            dist = math.sqrt(
-                                math.pow(m.getPosition().getX() - p_perfil.getPosition().getX(), 2) +
-                                math.pow(m.getPosition().getY() - p_perfil.getPosition().getY(), 2)
-                            )
-                            if dist < dist_min:
-                                dist_min = dist
-                                melhor_medico = m
+                        if candidatos:
+                            # 3. Selecionar o mais próximo
+                            melhor_medico = None
+                            dist_min = 10000.0
+                            for m in candidatos:
+                                dist = math.sqrt(
+                                    math.pow(m.getPosition().getX() - p_perfil.getPosition().getX(), 2) +
+                                    math.pow(m.getPosition().getY() - p_perfil.getPosition().getY(), 2)
+                                )
+                                if dist < dist_min:
+                                    dist_min = dist
+                                    melhor_medico = m
 
-                        if melhor_medico:
-                            print("Agent {}: A avisar especialista em {} (Médico {}) sobre falha no paciente {}.".format(
-                                str(self.agent.jid), melhor_medico.getSpeciality(), melhor_medico.getAgent(), p_jid))
+                            if melhor_medico:
+                                print(f"Agent {self.agent.jid}: A reportar falha técnica de {doenca} ao médico {melhor_medico.getAgent()}.")
+                                
+                                msg_med = Message(to=str(melhor_medico.getAgent()))
+                                msg_med.set_metadata("performative", "failure")
+                                msg_med.set_metadata("disease_failed", doenca) # Metadata extra útil
+                                msg_med.body = jsonpickle.encode(p_perfil)
+                                
+                                await self.send(msg_med)
                             
-                            msg_med = Message(to=str(melhor_medico.getAgent()))
-                            msg_med.set_metadata("performative", "failure")
-                            msg_med.body = jsonpickle.encode(p_perfil)
-                        
-                            await self.send(msg_med)
-                    else:
-                        print("Agent {}: ERRO: Paciente {} offline e nenhum dos seus especialistas disponível!".format(
-                            str(self.agent.jid), p_jid))
+                        else:
+                            print(f"Agent {self.agent.jid}: AVISO - Sensor de {doenca} falhou e não há médicos de {doenca} disponíveis!")
 
-                # 4. Remover do dicionário para não repetir o alerta no próximo ciclo do Periodic
-                del contactos[p_jid]
+                    # 4. Atualizamos o tempo para 'agora' para não spamar o médico a cada 10s.
+                    # Só voltará a avisar se passar OUTROS 30 segundos.
+                    contactos[p_jid][doenca] = time.time()
