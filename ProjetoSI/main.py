@@ -45,7 +45,7 @@ async def main():
     time.sleep(1)
 
     # --- 3. CONFIGURAÇÃO UNIFICADA (A Fonte da Verdade) ---
-    # O que escreveres aqui define O PACIENTE e OS SENSORES automaticamente.
+    # O que escrever aqui define O PACIENTE e OS SENSORES automaticamente.
     config_pacientes = [
         {"nome": "paciente1", "doencas": ["DPOC"]},  # Só DPOC
         {"nome": "paciente2", "doencas": ["Diabetes", "Hipertensão"]}, # Múltiplo
