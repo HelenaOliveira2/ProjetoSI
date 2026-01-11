@@ -5,7 +5,7 @@ from spade import wait_until_finished
 import random
 
 # Importação dos agentes
-from Agents.plataforma import APL_Agent
+from Agents.plataforma import PlataformAgent
 from Agents.alerta import AlertAgent
 from Agents.medico import MedicalAgent
 from Agents.paciente import PatientAgent
@@ -19,7 +19,7 @@ async def main():
 
     # 1. Iniciar a Plataforma e o Alerta
     apl_jid = 'plataforma@' + XMPP_SERVER
-    apl_agent = APL_Agent(apl_jid, PASSWORD)
+    apl_agent = PlataformAgent(apl_jid, PASSWORD)
     await apl_agent.start()
     
     aa_jid = 'agente_alerta@' + XMPP_SERVER
@@ -40,7 +40,7 @@ async def main():
         
         for i in range(1, qtd + 1):
             nome_limpo = esp.lower().replace("ã", "a").replace("õ", "o").replace("í", "i")
-            m_jid = f'medico_{nome_limpo}_{i}@{XMPP_SERVER}'
+            m_jid = 'medico_{}_{}@{}'.format(nome_limpo, i, XMPP_SERVER)
             
             m_agent = MedicalAgent(m_jid, PASSWORD)
             m_agent.set('platform_register', apl_jid)
@@ -86,8 +86,8 @@ async def main():
             tipo_classe = mapeamento_sensores[doenca]
             
             # Cria JID único (ex: sensor_dpoc_paciente1@...)
-            nome_sensor = f"sensor_{doenca.lower()}_{conf['nome']}".replace("ã", "a").replace("õ", "o")
-            ad_jid = f"{nome_sensor}@{XMPP_SERVER}"
+            nome_sensor = "sensor_{}_{}".format(doenca.lower(), conf['nome']).replace("ã", "a").replace("õ", "o")
+            ad_jid = "{}@{}".format(nome_sensor,XMPP_SERVER)
             
             ad_agent = DeviceAgent(ad_jid, PASSWORD)
             
@@ -99,10 +99,10 @@ async def main():
             await ad_agent.start()
             dispositivos_list.append(ad_agent)
             
-            print(f"   -> Sensor criado: {doenca} para {conf['nome']}")
+            print("-> Sensor criado: {} para {}".format( doenca, conf['nome']))
 
     print('\nSistema iniciado corretamente.')
-    print(f"Total: {len(pacientes_list)} Pacientes e {len(dispositivos_list)} Dispositivos.\n")
+    print("Total: {} Pacientes, {} Dispositivos e Médicos {}.".format(len(pacientes_list),len(dispositivos_list), len(medicos_list) ))
 
     # Manter a correr
     await wait_until_finished(apl_agent)
