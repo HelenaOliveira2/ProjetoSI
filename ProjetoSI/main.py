@@ -102,7 +102,7 @@ async def main():
             print("-> Sensor criado: {} para {}".format( doenca, conf['nome']))
 
     print('\nSistema iniciado corretamente.')
-    print("Total: {} Pacientes, {} Dispositivos e Médicos {}.".format(len(pacientes_list),len(dispositivos_list), len(medicos_list) ))
+    print("Total: {} Pacientes, {} Dispositivos e  {} Médicos.".format(len(pacientes_list),len(dispositivos_list), len(medicos_list) ))
 
     # Manter a correr
     await wait_until_finished(apl_agent)
