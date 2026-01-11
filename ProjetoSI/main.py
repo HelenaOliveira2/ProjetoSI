@@ -2,6 +2,7 @@ import time
 import spade
 import asyncio
 from spade import wait_until_finished
+import random
 
 # Importação dos agentes
 from Agents.plataforma import APL_Agent
@@ -14,7 +15,7 @@ XMPP_SERVER = 'localhost'
 PASSWORD = 'NOPASSWORD'
 
 async def main():
-    print("Iniciando Sistema de Monitorizacao Medica...")
+    print("A iniciar o Sistema de Monitorizacao Medica...")
 
     # 1. Iniciar a Plataforma e o Alerta
     apl_jid = 'plataforma@' + XMPP_SERVER
@@ -31,16 +32,22 @@ async def main():
     time.sleep(1)
 
     # 2. Iniciar Médicos Especialistas
-    especialidades = ["Diabetes", "Hipertensão", "DPOC"]
+    especialidades = ["Endocrinologia", "Cardiologia", "Pneumologia"]
     medicos_list = []
+    
     for esp in especialidades:
-        # replace("ã", "a") evita erros com caracteres especiais no XMPP
-        m_jid = f'medico_{esp.lower()}@{XMPP_SERVER}'.replace("ã", "a").replace("õ", "o")
-        m_agent = MedicalAgent(m_jid, PASSWORD)
-        m_agent.set('platform_register', apl_jid)
-        m_agent.set('especialidade_inicial', esp)
-        await m_agent.start()
-        medicos_list.append(m_agent)
+        qtd = random.randint(2, 3)
+        
+        for i in range(1, qtd + 1):
+            nome_limpo = esp.lower().replace("ã", "a").replace("õ", "o").replace("í", "i")
+            m_jid = f'medico_{nome_limpo}_{i}@{XMPP_SERVER}'
+            
+            m_agent = MedicalAgent(m_jid, PASSWORD)
+            m_agent.set('platform_register', apl_jid)
+            m_agent.set('especialidade_inicial', esp)
+            
+            await m_agent.start()
+            medicos_list.append(m_agent)
 
     time.sleep(1)
 

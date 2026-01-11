@@ -3,6 +3,7 @@ class Tensiometro:
         self.agent_jid = agent_jid
         self.pressure_sis = pressure_sis
         self.pressure_dia = pressure_dia
+        self.tipo = "Tensiometro"
 
     def getAgent(self):
         return self.agent_jid
@@ -16,6 +17,9 @@ class Tensiometro:
     def setPressure(self, sis: int, dia: int):
         self.pressure_sis = sis
         self.pressure_dia = dia
+
+    def getTipo(self):
+        return self.tipo
 
     def toString(self):
         return ("Tensiómetro [Paciente=" + str(self.agent_jid) + 

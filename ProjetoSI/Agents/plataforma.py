@@ -12,16 +12,8 @@ class APL_Agent(agent.Agent):
         self.medicos_registados = []
         self.ultimo_contacto = {} # Dicionário: { "jid_do_paciente": timestamp }     
     
-
-        # --- COMPORTAMENTOS ---
-
-        # Comportamento 1: Coordenação (Cyclic) - 
-        # Recebe subscrições e faz o reencaminhamento das mensagens
-        a = Plataforma_ReceiveBehav()
-
-        # Comportamento 2: Vigilância (Periodic) - Requisito de ausência de dados
-        # Verifica timeouts e gera falhas de contacto a cada 10 segundos
-        b = Monitorizacao_Behav(period=10)
+        a = Plataforma_ReceiveBehav() # CycliccBehaviour: Recebe subscrições e faz o reencaminhamento das mensagens
+        b = Monitorizacao_Behav(period=10) # PeriodicBehaviour: Verifica timeouts e gera falhas de contacto a cada 30 segundos
 
         self.add_behaviour(a)
         self.add_behaviour(b)

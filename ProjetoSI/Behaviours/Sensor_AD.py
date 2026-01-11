@@ -5,33 +5,32 @@ from spade.behaviour import PeriodicBehaviour
 from spade.message import Message
 
 from Classes.Medidor_glicemia import MedidorGlicemia
-from Classes.tensiometro import Tensiometro
-from Classes.oximetro import Oximetro
+from Classes.Tensiometro import Tensiometro
+from Classes.Oximetro import Oximetro
 
 class MonitoringSensor_Behav(PeriodicBehaviour):  
     async def run(self):
-        # 1. OBTER CONFIGURAÇÃO (Em vez do perfil, usamos o que vem da main)
-        # paciente_jid: para quem enviar
-        # tipo_dispositivo: que classe instanciar (MedidorGlicemia, Tensiometro, etc)
-        paciente_alvo = self.agent.get("paciente_alvo")
-        dispositivo = self.agent.get("tipo_dispositivo")
+        
+        paciente_alvo = self.agent.get("paciente_alvo")  # para quem enviar
+        dispositivo = self.agent.get("tipo_dispositivo") # (classe: MedidorGlicemia, Tensiometro, Oximetro)
 
         if not paciente_alvo or not dispositivo:
-            print(f"Agent {self.agent.jid}: Erro - Configuração incompleta (paciente ou dispositivo ausente).")
+            print("Agent {}:  Erro - Configuração incompleta (paciente ou dispositivo ausente).".format(str(self.agent.jid)))
+            self.kill()
             return
 
         vitals = None
         
-        # --- 1. SIMULAR FALHA TÉCNICA (5%) ---
+        # Simula falha técnica (5%) 
         if random.random() < 0.05:
             msg = Message(to=str(paciente_alvo))
             msg.set_metadata("performative", "failure")
             msg.body = dispositivo
             await self.send(msg)
-            print(f"Agent {self.agent.jid}: [FAILURE] Falha técnica do dispositivo {dispositivo} enviada ao Paciente.")
-            return # Se falhou, não envia sinais vitais neste ciclo
+            print("Agent {}:  Falha técnica do dispositivo {} enviada ao Paciente.".format(str(self.agent.jid), dispositivo))
+            return # se falhou, não envia sinais vitais neste ciclo
 
-        # --- 2. SIMULAR LEITURA (Sucesso) ---
+        # Simula leitura válida
         if dispositivo == "MedidorGlicemia":
             vitals = MedidorGlicemia(str(paciente_alvo), random.randint(70, 250))
         
@@ -44,12 +43,10 @@ class MonitoringSensor_Behav(PeriodicBehaviour):
         
         elif dispositivo == "Oximetro":
             vitals = Oximetro(str(paciente_alvo), random.randint(85, 100))
-
-        # --- 3. ENVIO DOS DADOS ---
-        if vitals:
-            msg = Message(to=str(paciente_alvo))
-            msg.set_metadata("performative", "inform")
-            msg.body = jsonpickle.encode(vitals)
-            
-            await self.send(msg)
-            print(f"Agent {self.agent.jid}: [INFORM] Dados de {dispositivo} enviados ao paciente.")
+    
+        msg = Message(to=str(paciente_alvo))
+        msg.set_metadata("performative", "inform")
+        msg.body = jsonpickle.encode(vitals)
+        
+        await self.send(msg)
+        print("Agent {}:  Dados de {} enviados ao paciente {}.".format(str(self.agent.jid), dispositivo, str(paciente_alvo)))

@@ -5,70 +5,57 @@ from spade.message import Message
 
 class ReceiveAlerts_Behav(CyclicBehaviour):
     async def run(self):
-        # 1. O Médico recebe uma PROPOSTA da Plataforma
+       
         msg = await self.receive(timeout=10)
 
         if msg:
+            estou_livre = self.agent.get("available")
+            if estou_livre is None: estou_livre = True 
+
+            if not estou_livre:
+                print("Agent {}:  Recebi mensagem mas estou ocupado.".format(str(self.agent.jid)))
+                return 
+
             perf_recebida = msg.get_metadata("performative")
             
-            # --- ALTERAÇÃO AQUI: Verificamos as performatives de alerta ---
             if perf_recebida in ["informative", "urgent", "critical"]:
                 
-                # 1. Ler Dados da Mensagem
-                # O nível de urgência é a própria performative
+                self.agent.set("available", False)
+                #print("Agent {}:  Vou ficar ocupado.".format(str(self.agent.jid)))
+
                 nivel = perf_recebida
-                
-                # 2. O corpo é uma LISTA [vitals, None, especialidade]
-                conteudo = jsonpickle.decode(msg.body)
-                vitals = conteudo[0] # Objeto do sensor (Glicometro, Tensiometro, etc)
-                
-                # 3. Extrair o JID do paciente do objeto do sensor
+                alerta = jsonpickle.decode(msg.body)
+                vitals = alerta.getVitals()
                 paciente_jid = str(vitals.agent_jid)
 
-                print(f"\n[AM]Agent {self.agent.jid}: RECEBI CASO PRIORITÁRIO")
-                print(f"Prioridade: {nivel.upper()} | Paciente: {paciente_jid}")
-
-                # 2. ACEITAÇÃO IMEDIATA (Protocolo de Disponibilidade)
-                # Respondemos 'accept-proposal' à Plataforma
-                reply = Message(to=str(msg.sender))
-                reply.set_metadata("performative", "agree") # A Plataforma espera isto para desbloquear o loop
+                print("Agent {}: Recebi alerta".format(str(self.agent.jid)))
+                print("Prioridade: {} | Paciente: {}".format(str(self.agent.jid), nivel.upper(),paciente_jid ))
+            
+                # aceitação do alerta pelo médico
+                reply = msg.make_reply()
+                reply.set_metadata("performative", "agree") 
                 reply.body = "A avaliar paciente..."
                 await self.send(reply)
 
-                # Print intermédio para tu vermos que ele aceitou antes de decidir
-                print(f"[AM] Agent {self.agent.jid}: Caso aceite. A iniciar análise clínica...")
-
-                # 3. TOMADA DE DECISÃO (Lógica Médica baseada na Gravidade)
+                print("Agent {}: Caso aceite. A iniciar análise clínica...".format(str(self.agent.jid)))
+        
                 decisao_medica = ""
-                tempo_intervencao = 0
-
-                # Ajustamos as strings para bater certo com as performatives
+                tempo_intervencao = 5  
                 if nivel == "critical":
-                    decisao_medica = "PEDIDO DE OBSERVAÇÃO PRESENCIAL (IMEDIATO)"
-                    tempo_intervencao = 5 
+                    decisao_medica = " Pedido de observação presencial (IMEDIATO)"
                 elif nivel == "urgent":
-                    decisao_medica = "RECOMENDAÇÃO TERAPÊUTICA (AJUSTE DE DOSAGEM)"
-                    tempo_intervencao = 3
+                    decisao_medica = "Recomendação terapêutica (ajuste da medicação)"
                 elif nivel == "informative":
-                    
-                    decisao_medica = "CONTACTO COM O PACIENTE PARA MONITORIZAÇÃO"
-                    tempo_intervencao = 2
+                    decisao_medica = "Contacto com o paciente para monitorização"
+                  
+                await asyncio.sleep(tempo_intervencao) # simulaçao do tempo que o medico demora a decidir a intervenção
 
-                
-                # Simula o tempo que o médico demora a tratar o paciente
-                await asyncio.sleep(tempo_intervencao)
+                print("Agent {}: Análise concluída ->".format(str(self.agent.jid)),decisao_medica )
 
-                # ---  ENVIAR DECISÃO PARA A PLATAFORMA ---
-                # Só agora, depois do tempo passar, é que mostramos a decisão
-                print(f"[AM] Agent {self.agent.jid}: Análise concluída -> {decisao_medica}")
-
-                
-                # Enviar decisão para a Plataforma entregar ao paciente
-                msg_entrega = Message(to=str(msg.sender)) # msg.sender é a Plataforma
+                # enviar decisao ao APL
+                msg_entrega = msg.make_reply()
                 msg_entrega.set_metadata("performative", "inform") 
-                #?msg_entrega.set_metadata("purpose", "delivery") 
-
-                # Guardamos o destinatário e a mensagem num dicionário
+                
                 conteudo_entrega = {
                     "destinatario": paciente_jid,
                     "mensagem": decisao_medica
@@ -76,61 +63,62 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                 msg_entrega.body = jsonpickle.encode(conteudo_entrega)
                 
                 await self.send(msg_entrega)
-                print(f"[AM] Agent {self.agent.jid}: Decisão enviada à Plataforma para entrega ao paciente.")
+                print("Agent {}: Decisão enviada à Plataforma.".format(str(self.agent.jid)))
 
-                # 4. FINALIZAÇÃO (Protocolo de Libertação)
-                # Enviamos 'confirm' para a Plataforma saber que o médico está LIVRE (available=True)
-                conf = Message(to=str(msg.sender))
+                # confirmar ao APL que acabou de decidir a intervenção e fica livre para mais
+                conf = msg.make_reply()
                 conf.set_metadata("performative", "confirm")
                 conf.body = "Intervenção Concluída"
                 await self.send(conf)
                 
-                print(f"[AM] Agent {self.agent.jid}: Intervenção concluída. Disponível para novos alertas.\n")
+                self.agent.set("available", True)
+                print("Agent {}: Decisão concluída. Estou livre.\n".format(str(self.agent.jid)))
+    
 
             elif perf_recebida == "failure":
+                    
+                    self.agent.set("available", False)
+            
                     conteudo = jsonpickle.decode(msg.body)
                     paciente_jid = conteudo.getJID()
-                    doenca_falhada = msg.get_metadata("disease_failed")
-                    if not doenca_falhada: doenca_falhada = "Sensor Desconhecido"
+                    doenca_falhada = msg.get_metadata("disease_failed")  # mudar para dispositivo e nao doenca!!!!!!!!
                     
-                    print(f"\n[AM] Agent {self.agent.jid}: RECEBI NOTIFICAÇÃO DE FALHA TÉCNICA ({doenca_falhada})")
-                    
-                    # --- NOVO: Enviar AGREE para confirmar receção ---
-                    reply = Message(to=str(msg.sender))
+                    print("Agent {}: Recebi notificação de falha técnica.".format(str(self.agent.jid)), doenca_falhada)
+                                        
+                    # aceitação do alerta pelo médico
+                    reply = msg.make_reply()
                     reply.set_metadata("performative", "agree") 
                     reply.body = "Falha rececionada"
                     await self.send(reply)
-                    print(f"[AM] Agent {self.agent.jid}: Confirmei receção da falha (AGREE).")
-                    # -------------------------------------------------
+                    print("Agent {}: Intervenção concluída. Confirmei receção da falha".format(str(self.agent.jid)))
 
-                    print(f"[AM] Agent {self.agent.jid}: A verificar registos do equipamento...")
+                    print("Agent {}: A verificar registos do equipamento...".format(str(self.agent.jid)))
+                    
                     await asyncio.sleep(2) 
 
-                    decisao = "CONTACTO TÉCNICO URGENTE (SUBSTITUIÇÃO DE SENSOR)"
-                    print(f"[AM] Agent {self.agent.jid}: Decisão tomada -> {decisao}")
-
-                    # Enviar ordem (INFORM)
-                    msg_entrega = Message(to=str(msg.sender)) 
-                    msg_entrega.set_metadata("performative", "inform") 
-                    # msg_entrega.set_metadata("purpose", "delivery") # Já não precisas disto se usares a lista
-
-                    conteudo_entrega = [paciente_jid, decisao]
-                    msg_entrega.body = jsonpickle.encode(conteudo_entrega)
+                    decisao = "Contacto técnico urgente (substituição do sensor)"
                     
+                    print("Agent {}: Decisão tomada ->".format(str(self.agent.jid)), decisao)
+              
+                    # enviar decisao ao APL
+                    msg_entrega = msg.make_reply()
+                    msg_entrega.set_metadata("performative", "inform") 
+                    conteudo_entrega = {
+                    "destinatario": paciente_jid,
+                    "mensagem": decisao_medica
+                }
+                    msg_entrega.body = jsonpickle.encode(conteudo_entrega)
                     await self.send(msg_entrega)
-                    print(f"[AM] Agent {self.agent.jid}: Ordem de suporte técnico enviada.")
+                    print("Agent {}: Ordem de suporte técnico enviada.".format(str(self.agent.jid)))
 
-                    # Libertar (CONFIRM)
-                    conf = Message(to=str(msg.sender))
+                    # confirmar ao APL que acabou de decidir a intervenção e fica livre para mais
+                    conf = msg.make_reply()
                     conf.set_metadata("performative", "confirm")
                     conf.body = "Intervenção Técnica Concluída"
                     await self.send(conf)
-                    
-                    print(f"[AM] Agent {self.agent.jid}: Intervenção concluída. Disponível para novos alertas.\n")
-
-            else:
-                #garante que, se o médico não receber alertas, ele simplesmente ignora e volta a ouvir no próximo ciclo, mantendo o agente "vivo" e atento, sem dar erro por tentar processar uma mensagem vazia.
-                pass
-
+                  
+                    self.agent.set("available", True)
+                    print("Agent {}:Decisão concluída. Estou livre".format(str(self.agent.jid)))
+                  
     async def on_end(self):
         print(f"Agent {self.agent.jid}: Comportamento do Médico terminado.")

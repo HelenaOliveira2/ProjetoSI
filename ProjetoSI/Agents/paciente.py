@@ -4,17 +4,13 @@ from Behaviours.Register_AP import RegisterPatient_Behav
 from Behaviours.ReceiveVS_AP import ReceiveMessages_Behav
 
 class PatientAgent(agent.Agent):
-    perfil = None
 
     async def setup(self):
         print("Agent {}".format(str(self.jid)) + " Agente Paciente (AP) a iniciar...")
         
-        # Comportamento 1: Registo inicial (OneShot)
-        a = RegisterPatient_Behav()
-        # Comportamento 2: Envio periódico de sinais vitais 
-        b = SendVitals_Behav(period=10) # Envia a cada 10 segundos
-        # 3. Escuta ativa (Executa continuamente)
-        c = ReceiveMessages_Behav()
+        a = RegisterPatient_Behav() # OneShotBehaviour: Registo inicial no APL
+        b = SendVitals_Behav(period=25) # PeriodicBehaviour: Envio periódico de sinais vitais (10 segundos) para o AA
+        c = ReceiveMessages_Behav() # CycliccBehaviour: Recebe continuamente os sinais vitais do AD 
 
         self.add_behaviour(a)
         self.add_behaviour(b)

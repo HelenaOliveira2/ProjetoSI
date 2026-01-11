@@ -1,29 +1,21 @@
 class MedicalAlert:
-    """
-    Objeto que encapsula o alerta gerado.
-    Contém o nível de gravidade, os sinais vitais que originaram o alerta
-    e o perfil do paciente (que indica a doença/especialidade).
-    """
-    def __init__(self, level: str, vitals, profile):
-        self.level = level       # "inform", "urgente" ou "critico"
-        self.vitals = vitals     # Objeto VitalSigns
-        self.profile = profile   # Objeto PatientProfile (tem a doença e o JID do paciente)
-
-    def getLevel(self):
-        return self.level
+    def __init__(self, vitals, specialty, level):
+        self.vitals = vitals       # Objeto do sensor (ex: Oximetro)
+        self.specialty = specialty # String (ex: "DPOC")
+        self.level = level         # String (ex: "critical")
 
     def getVitals(self):
         return self.vitals
 
-    def getProfile(self):
-        return self.profile
+    def getSpecialty(self):
+        return self.specialty
 
-    def getDisease(self):
-        # Atalho para saber a doença diretamente (útil para a Plataforma escolher o Médico)
-        return self.profile.getDisease()
+    def getLevel(self):
+        return self.level
 
     def getPatientJID(self):
-        return self.profile.getAgent()
+        # Vai buscar o JID diretamente ao sensor
+        return str(self.vitals.agent_jid)
 
     def toString(self):
         return "MedicalAlert [Nivel={}, Doenca={}, Paciente={}]".format(

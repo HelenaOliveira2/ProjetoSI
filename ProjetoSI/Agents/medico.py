@@ -4,16 +4,13 @@ from Behaviours.Register_AM import RegisterDoctor_Behav
 
 class MedicalAgent(Agent):
     async def setup(self):
-        # Definir estado inicial como disponível
-        self.set("Livre", True)
+        
+        self.set("available", True) #  Definir estado inicial como disponível
 
         print("Agent {}".format(str(self.jid)) + " Agente Medico (AM) a iniciar...")
 
-       
+        a = RegisterDoctor_Behav() # OneShotBehaviour: Registo inicial no APL
+        b = ReceiveAlerts_Behav()  # CycliccBehaviour: Recebe alertas do APL
 
-        # 2. Comportamento para receber alertas (Cyclic)
-        a = RegisterDoctor_Behav()
         self.add_behaviour(a)
-        
-        b = ReceiveAlerts_Behav()
         self.add_behaviour(b)
