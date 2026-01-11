@@ -5,7 +5,7 @@ from Behaviours.Register_AM import RegisterDoctor_Behav
 class MedicalAgent(Agent):
     async def setup(self):
         
-        self.set("available", True) #  Definir estado inicial como disponível
+        self.set("available", True) #  Define estado inicial como disponível
 
         print("Agent {}".format(str(self.jid)) + " Agente Medico (AM) a iniciar...")
 

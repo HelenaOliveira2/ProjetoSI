@@ -2,7 +2,7 @@ from spade import agent
 from Behaviours.CoordenateMSG_APL import Plataforma_ReceiveBehav
 from Behaviours.Check_Timeouts_APL import Monitorizacao_Behav
 
-class APL_Agent(agent.Agent):
+class PlataformAgent(agent.Agent):
 
     async def setup(self):
         

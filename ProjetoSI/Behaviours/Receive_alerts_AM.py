@@ -96,9 +96,9 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                     
                     await asyncio.sleep(2) 
 
-                    decisao = "Contacto técnico urgente (substituição do sensor)"
+                    decisao_medica = "Contacto técnico urgente (substituição do sensor)"
                     
-                    print("Agent {}: Decisão tomada ->".format(str(self.agent.jid)), decisao)
+                    print("Agent {}: Decisão tomada ->".format(str(self.agent.jid)), decisao_medica)
               
                     # enviar decisao ao APL
                     msg_entrega = msg.make_reply()
