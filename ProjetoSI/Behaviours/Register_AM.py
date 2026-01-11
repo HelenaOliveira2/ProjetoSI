@@ -8,7 +8,7 @@ import random
 class RegisterDoctor_Behav(OneShotBehaviour):
     async def run(self):
        
-        especialidade = self.agent.get("especialidade_inicial") # lê especialidades definidas na main
+        especialidade = self.agent.get("especialidade_inicial") # ler especialidades definidas na main
     
         if not especialidade:  # se nao estiverem definidas na main 
             opcoes = ["Endocrinologia", "Cardiologia", "Pneumologia"]

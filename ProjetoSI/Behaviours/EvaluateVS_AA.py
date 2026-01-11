@@ -46,5 +46,5 @@ class EvaluateVS_Behav(CyclicBehaviour):
             alerta_obj = MedicalAlert(vitals, especialidade, nivel_alerta)
             msg_out.body = jsonpickle.encode(alerta_obj)
             await self.send(msg_out)
-            print("Agent {}: Alerta {} de {} enviado para Plataforma.".format(str(self.agent.jid), nivel_alerta.upper(), especialidade))    
+            print("\nAgent {}: Alerta {} de {} enviado para Plataforma.".format(str(self.agent.jid), nivel_alerta.upper(), especialidade))    
         

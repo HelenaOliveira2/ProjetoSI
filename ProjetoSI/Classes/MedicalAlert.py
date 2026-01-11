@@ -1,8 +1,8 @@
 class MedicalAlert:
     def __init__(self, vitals: object, specialty: str, level: str):
-        self.vitals = vitals       # Objeto do sensor (ex: Oximetro)
-        self.specialty = specialty # String (ex: "DPOC")
-        self.level = level         # String (ex: "critical")
+        self.vitals = vitals       # Objeto do sensor 
+        self.specialty = specialty 
+        self.level = level         
 
     def getVitals(self):
         return self.vitals

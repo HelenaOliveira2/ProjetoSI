@@ -72,7 +72,8 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                 await self.send(conf)
                 
                 self.agent.set("available", True)
-                print("Agent {}: Decisão concluída. Estou livre.\n".format(str(self.agent.jid)))
+                print("Agent {}: Decisão concluída. Estou livre.".format(str(self.agent.jid)))
+                print("-" * 60 + "\n")
     
 
             elif perf_recebida == "failure":
@@ -119,6 +120,7 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                   
                     self.agent.set("available", True)
                     print("Agent {}:Decisão concluída. Estou livre".format(str(self.agent.jid)))
+                    print("-" * 60 + "\n")
                   
     async def on_end(self):
         print("Agent {}:Comportamento do Médico terminado.".format(str(self.agent.jid)))
