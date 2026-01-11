@@ -6,6 +6,7 @@ class DoctorProfile:
         self.position = position
         self.speciality = speciality
         self.available = available 
+        self.role = "medico"
 
     def getAgent(self):
         return self.agent_jid
@@ -26,7 +27,7 @@ class DoctorProfile:
         self.available = available
     
     def getRole(self):
-        return "medico"
+        return self.role
 
     def toString(self):
         estado = "Livre" if self.available else "Ocupado"
