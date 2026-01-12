@@ -85,7 +85,7 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
                    print("Agent {}: AVISO: Sem especialistas de {} disponíveis!".format(str(self.agent.jid), especialidade_req))
 
                 while candidatos and not alerta_entregue:
-                    # 2. Selecionar o médico daquela especialidade mais próximo
+                    # Selecionar o médico daquela especialidade mais próximo
                     melhor_medico = None
                     dist_min = 10000.0
                     for m in candidatos:
@@ -127,7 +127,7 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
                     if med.getAgent() == sender:
                         med.setAvailable(True)
                         print("Agent {}: Médico {} concluiu decisão e está livre.".format(str(self.agent.jid), sender))
-                        break 
+                        
 
             # o medico envia a decisao de intervenção para o APL e desta para o AP
             elif perf == "inform":

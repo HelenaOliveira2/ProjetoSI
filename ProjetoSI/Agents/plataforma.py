@@ -10,7 +10,7 @@ class PlataformAgent(agent.Agent):
 
         self.pacientes_registados = []
         self.medicos_registados = []
-        self.ultimo_contacto = {} # Dicionário: { "jid_do_paciente": timestamp }     
+        self.ultimo_contacto = {} # Dicionário: {'paciente_jid': {'Diabetes': timestamp, 'DPOC': timestamp}}
     
         a = Plataforma_ReceiveBehav() # CycliccBehaviour: Recebe subscrições e faz o reencaminhamento das mensagens
         b = Monitorizacao_Behav(period=10) # PeriodicBehaviour: Verifica timeouts e gera falhas de contacto a cada 30 segundos
