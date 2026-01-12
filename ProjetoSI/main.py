@@ -4,6 +4,10 @@ import asyncio
 from spade import wait_until_finished
 import random
 
+<<<<<<< HEAD
+# Importação dos agentes
+=======
+>>>>>>> 02df3a4bdf69dad42ea587f9e562434a073ea0d5
 from Agents.plataforma import PlataformAgent
 from Agents.alerta import AlertAgent
 from Agents.medico import MedicalAgent
