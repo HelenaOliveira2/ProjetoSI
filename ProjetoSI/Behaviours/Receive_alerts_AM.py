@@ -53,7 +53,7 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                 print("Agent {}: Análise concluída ->".format(str(self.agent.jid)),decisao_medica )
 
                 # enviar decisao ao APL
-                msg_entrega = msg.make_reply()
+                msg_entrega = Message(to=str(msg.sender))
                 msg_entrega.set_metadata("performative", "inform") 
                 
                 conteudo_entrega = {
@@ -66,13 +66,14 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                 print("Agent {}: Decisão enviada à Plataforma.".format(str(self.agent.jid)))
 
                 # confirmar ao APL que acabou de decidir a intervenção e fica livre para mais
-                conf = msg.make_reply()
+                conf =  Message(to=str(msg.sender))
                 conf.set_metadata("performative", "confirm")
                 conf.body = "Intervenção Concluída"
                 await self.send(conf)
                 
                 self.agent.set("available", True)
-                print("Agent {}: Decisão concluída. Estou livre.\n".format(str(self.agent.jid)))
+                print("Agent {}: Decisão concluída. Estou livre.".format(str(self.agent.jid)))
+                print("-" * 60 + "\n")
     
 
             elif perf_recebida == "failure":
@@ -101,7 +102,7 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                     print("Agent {}: Decisão tomada ->".format(str(self.agent.jid)), decisao_medica)
               
                     # enviar decisao ao APL
-                    msg_entrega = msg.make_reply()
+                    msg_entrega =  Message(to=str(msg.sender))
                     msg_entrega.set_metadata("performative", "inform") 
                     conteudo_entrega = {
                     "destinatario": paciente_jid,
@@ -112,13 +113,14 @@ class ReceiveAlerts_Behav(CyclicBehaviour):
                     print("Agent {}: Ordem de suporte técnico enviada.".format(str(self.agent.jid)))
 
                     # confirmar ao APL que acabou de decidir a intervenção e fica livre para mais
-                    conf = msg.make_reply()
+                    conf = Message(to=str(msg.sender))
                     conf.set_metadata("performative", "confirm")
                     conf.body = "Intervenção Técnica Concluída"
                     await self.send(conf)
                   
                     self.agent.set("available", True)
                     print("Agent {}:Decisão concluída. Estou livre".format(str(self.agent.jid)))
+                    print("-" * 60 + "\n")
                   
     async def on_end(self):
-        print(f"Agent {self.agent.jid}: Comportamento do Médico terminado.")
+        print("Agent {}:Comportamento do Médico terminado.".format(str(self.agent.jid)))

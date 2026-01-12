@@ -11,8 +11,9 @@ class Plataforma_ReceiveBehav(CyclicBehaviour):
         msg = await self.receive(timeout=10)
 
         if msg:
-          
+                      
             perf = msg.get_metadata("performative").lower()
+            
             sender = str(msg.sender)
 
             # registo

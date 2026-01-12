@@ -1,8 +1,8 @@
 class MedicalAlert:
-    def __init__(self, vitals, specialty, level):
-        self.vitals = vitals       # Objeto do sensor (ex: Oximetro)
-        self.specialty = specialty # String (ex: "DPOC")
-        self.level = level         # String (ex: "critical")
+    def __init__(self, vitals: object, specialty: str, level: str):
+        self.vitals = vitals       # Objeto do sensor 
+        self.specialty = specialty 
+        self.level = level         
 
     def getVitals(self):
         return self.vitals
@@ -18,6 +18,6 @@ class MedicalAlert:
         return str(self.vitals.agent_jid)
 
     def toString(self):
-        return "MedicalAlert [Nivel={}, Doenca={}, Paciente={}]".format(
-            self.level, self.profile.getDisease(), self.profile.getAgent()
+        return "MedicalAlert [Nivel={}, Especialidade={}, Paciente={}]".format(
+            self.level, self.specialty, self.getPatientJID()
         )

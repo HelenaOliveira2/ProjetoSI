@@ -56,7 +56,7 @@ class Monitorizacao_Behav(PeriodicBehaviour):
                                     melhor_medico = m
 
                             if melhor_medico:
-                                print("Agent {}: SA reportar falha técnica de {} ao médico {}".format(str(self.agent.jid), doenca, melhor_medico.getAgent()))
+                                print("Agent {}: Reportar falha técnica de {} ao médico {}".format(str(self.agent.jid), doenca, melhor_medico.getAgent()))
                                 
                                 msg_med = Message(to=str(melhor_medico.getAgent()))
                                 msg_med.set_metadata("performative", "failure")

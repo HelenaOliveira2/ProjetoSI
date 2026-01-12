@@ -6,6 +6,7 @@ class PatientProfile:
         self.diseases = diseases # lista de doenças
         self.position = pos
         self.devices = devices # lista de dispositivos médicos
+        self.role = "paciente"
 
     def getJID(self):
         return self.jid
@@ -23,7 +24,7 @@ class PatientProfile:
         self.position = position
 
     def getRole(self):
-        return "paciente"
+        return self.role
 
     def toString(self):
         return ("PatientProfile [Paciente=" + str(self.jid) + 
