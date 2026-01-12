@@ -5,7 +5,7 @@ from spade import wait_until_finished
 import random
 
 # Importação dos agentes
-from Agents.plataforma import APL_Agent
+from Agents.plataforma import PlataformAgent
 from Agents.alerta import AlertAgent
 from Agents.medico import MedicalAgent
 from Agents.paciente import PatientAgent
@@ -19,7 +19,7 @@ async def main():
 
     # 1. Iniciar a Plataforma e o Alerta
     apl_jid = 'plataforma@' + XMPP_SERVER
-    apl_agent = APL_Agent(apl_jid, PASSWORD)
+    apl_agent = PlataformAgent(apl_jid, PASSWORD)
     await apl_agent.start()
     
     aa_jid = 'agente_alerta@' + XMPP_SERVER

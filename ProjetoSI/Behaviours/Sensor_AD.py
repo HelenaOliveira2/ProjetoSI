@@ -5,8 +5,8 @@ from spade.behaviour import PeriodicBehaviour
 from spade.message import Message
 
 from Classes.Medidor_glicemia import MedidorGlicemia
-from Classes.Tensiometro import Tensiometro
-from Classes.Oximetro import Oximetro
+from Classes.tensiometro import Tensiometro
+from Classes.oximetro import Oximetro
 
 class MonitoringSensor_Behav(PeriodicBehaviour):  
     async def run(self):
